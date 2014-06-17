@@ -26,7 +26,9 @@ function SpecialMoveEnded(ESpecialMove PrevMove, ESpecialMove NextMove)
 
 DefaultProperties
 {
-	AnimCfg_Push=(AnimationNames=("zhujue-tuikai"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=false,blendintime=0.0,blendouttime=0.4)
+	
+	//AnimCfg_Push=(AnimationNames=("zhujue-tuikai"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=false,blendintime=0.0,blendouttime=0.4)
+  	AnimCfg_Push=(AnimationNames=("actor-pushaway_01"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=false,blendintime=0.0,blendouttime=0.4)
 
 		bDisableMovement=true
 		bDisableTurn=true

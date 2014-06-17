@@ -32,7 +32,7 @@ function UpdateCamera(Pawn rPawn, ZBPlayerCamera rCameraActor, float rDeltaTime,
 	if (ResetCam)
 	{
 		ResetCam = false;
-		rOutVT.POV.rotation.yaw = rot2.yaw + 90 * DegtoUnrRot;
+		rOutVT.POV.rotation.yaw = rot2.yaw ;//+ 90 * DegtoUnrRot;
 		rOutVT.POV.rotation.pitch = -25 * DegtoUnrRot;
 		BaseCamLoc = rPawn.Location;
 		TargetPawn = rPawn;

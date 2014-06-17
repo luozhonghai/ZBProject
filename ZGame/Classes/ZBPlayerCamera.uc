@@ -325,7 +325,8 @@ function PreventCameraPenetration(ZombiePC ZPC, out vector vLocation, out rotato
 		{
 			out_CamLoc = HitLocation + HitNormal*2;
 		}
-		else if( HitActor.IsA('StaticMeshActor') && StaticMeshActor(HitActor).CollisionComponent.CanBlockCamera )
+		else if( HitActor.IsA('StaticMeshActor') && StaticMeshActor(HitActor).CollisionComponent.CanBlockCamera 
+			|| HitActor.IsA('StaticMeshCollectionActor'))
 		{
 			out_CamLoc = HitLocation + HitNormal*2;
 		}
@@ -391,5 +392,5 @@ DefaultProperties
 {
 	DefaultCameraType="ZGame.ZBCameraTypeDarkSider"
 
-		ClosestCameraThreshold=30.000000   //20 origin
+		ClosestCameraThreshold=50.000000   //20 origin
 }

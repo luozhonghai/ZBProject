@@ -1,7 +1,7 @@
 class NSM_Pushed extends ZBSpecialMove;
 
 
-var() ZombiePawn.AnimationParaConfig		AnimCfg_Pushed,AnimCfg_GetUp;
+var() ZombiePawn.AnimationParaConfig		AnimCfg_Pushed,AnimCfg_GetUp,AnimCfg_Kicked;
 var ZombiePawn.AnimationParaConfig LastAnimCfg;
 
 var bool bPushedEndTimer;
@@ -14,8 +14,18 @@ function SpecialMoveStarted(bool bForced, ESpecialMove PrevMove, optional INT In
 
 	if (PawnOwner.health > 0)
 	{
-		PawnOwner.PlayConfigAnim(AnimCfg_Pushed);
-		LastAnimCfg = AnimCfg_Pushed;
+		if(PawnOwner.ZombieType == EZT_Walk)
+		{
+			PawnOwner.PlayConfigAnim(AnimCfg_Pushed);
+			LastAnimCfg = AnimCfg_Pushed;
+		}
+		else if(PawnOwner.ZombieType == EZT_Creep)
+		{
+			PawnOwner.PlayConfigAnim(AnimCfg_Kicked);
+			LastAnimCfg = AnimCfg_Kicked;
+		}
+	//	PawnOwner.Velocity -= 1000 * Vector(PawnOwner.rotation); 
+		
 	}
 }
 
@@ -23,7 +33,7 @@ function SpecialMoveStarted(bool bForced, ESpecialMove PrevMove, optional INT In
 function AnimCfg_AnimEndNotify()
 {
 	// By default end this special move.
-	if(LastAnimCfg == AnimCfg_Pushed){
+	if(LastAnimCfg == AnimCfg_Pushed || LastAnimCfg == AnimCfg_Kicked){
 		//only valid for direct interact Zombie  ,others just pushed by PlayerPawn~
 		if(PawnOwner == ZombieControllerBase(PawnOwner.Controller).globalPlayerController.InteractZombie)
 		{
@@ -80,7 +90,7 @@ event tickspecial(float deltaTime)
 				if(PawnOwner.health > 0)
 				{
 					LastAnimCfg = AnimCfg_GetUp;
-					ZBAIPawnBase(PawnOwner).RestoreFixedLocAndRot();
+					//ZBAIPawnBase(PawnOwner).RestoreFixedLocAndRot();
 					PawnOwner.PlayConfigAnim(AnimCfg_GetUp);
 				}
 			//	else
@@ -94,11 +104,13 @@ DefaultProperties
 {
 	//zombie01-tuidao
 	//zombie-pushdown
-	AnimCfg_Pushed=(AnimationNames=("zombie01-tuidao"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=false,blendouttime=-1.0)
+	
+	//zombie-pushaway
+	AnimCfg_Pushed=(AnimationNames=("zombie-pushaway"),PlayRate=1.0,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=false,blendouttime=-1.0)
     AnimCfg_Kicked=(AnimationNames=("zombie-tikai"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=false,blendouttime=-1.0)
 	AnimCfg_GetUp=(AnimationNames=("zombie-getup"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=false,blendouttime=0.15)
     
-	//   UseCustomRMM=True
+	 //  UseCustomRMM=True
 	//	RMMInAction=RMM_Translate
 
 		PushedDelayTime=2.5

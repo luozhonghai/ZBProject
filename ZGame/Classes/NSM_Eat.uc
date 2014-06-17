@@ -37,8 +37,9 @@ function SpecialMoveEnded(ESpecialMove PrevMove, ESpecialMove NextMove)
 }
 DefaultProperties
 {
-	AnimCfg_Eat=(AnimationNames=("zombie01-chi"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=true,blendintime=0.0,blendouttime=0.0)
-
+	//zombie01-chi zombie-eat
+	AnimCfg_Eat=(AnimationNames=("zombie-eat"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=true,blendintime=0.0,blendouttime=0.0)
+ 
 		//UseCustomRMM=True
 		RMMInAction=RMM_Translate
 

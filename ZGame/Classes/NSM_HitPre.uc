@@ -20,13 +20,13 @@ function SpecialMoveEnded(ESpecialMove PrevMove, ESpecialMove NextMove)
 
 	if (PawnOwner.health > 0)
 	{
-		//	PawnOwner.StopConfigAnim(AnimCfg_Hit, 0);
+		PawnOwner.StopConfigAnim(AnimCfg_HitPre, 0);
 	}
 }
 
 
 DefaultProperties
 {
-	AnimCfg_HitPre=(AnimationNames=("zombie01-movefast"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=true)
+	AnimCfg_HitPre=(AnimationNames=("zombie01-movefast"),PlayRate=2.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=true)
 
 }

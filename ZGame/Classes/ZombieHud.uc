@@ -41,12 +41,18 @@ event PostRender()
          Canvas.SetPos(400,110);
          Canvas.DrawText("Specialmove: "@PPawn.SpecialMove);
          Canvas.SetPos(400,140);
-         if(ZombieRushPawn(PPawn).CurrentActiveCustomAnimNode.GetCustomAnimNodeSeq() != none)
+         Canvas.DrawText("Physics:"@ZombieRushPawn(PPawn).Physics);
+         Canvas.SetPos(400,170);
+    //     Canvas.DrawText("AMMO:"@ZombieRushPawn(PPawn).AmmoNum[ZombieRushPawn(PPawn).CurrentWeaponType]);
+        if(ZombieRushPawn(PPawn).CurrentActiveCustomAnimNode.GetCustomAnimNodeSeq() != none)
          Canvas.DrawText(ZombieRushPawn(PPawn).CurrentActiveCustomAnimNode.GetCustomAnimNodeSeq().AnimSeqName);
 
-         Canvas.SetPos(400,170);
+         Canvas.SetPos(400,200);
          Canvas.DrawText("CustomHealth"@PPawn.GetCustomHealth()@"Health"@PPawn.Health);
-         
+
+
+         Canvas.SetPos(400,230);
+         Canvas.DrawText("AmmoNum"@ZombieRushPawn(PPawn).AmmoNum[2]);
 
          foreach AllActors(class 'Actor', a, class 'IDebugInterface')
          {

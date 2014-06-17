@@ -3,10 +3,6 @@ class ZSM_GunFire extends ZBSpecialMove;
 
 var() ZombiePawn.AnimationParaConfig		AnimCfg_Animation;
 
-
-var() float PreFireTime;
-var float FireDelay;
-var bool bFirTimer;
 function SpecialMoveStarted(bool bForced, ESpecialMove PrevMove, optional INT InSpecialMoveFlags)
 {
 	local rotator newRot;
@@ -19,8 +15,6 @@ function SpecialMoveStarted(bool bForced, ESpecialMove PrevMove, optional INT In
 
 	PawnOwner.PlayConfigAnim(AnimCfg_Animation);
 	PCOwner.gotoState('PlayerAttacking');
-	//bFirTimer=true;
-
 	//PawnOwner.SoundGroupClass.static.PlayATKSoundOne(PawnOwner);
 
 }
@@ -34,22 +28,17 @@ function SpecialMoveEnded(ESpecialMove PrevMove, ESpecialMove NextMove)
 	PawnOwner.weapon.ClearPendingFire( 0 );
 	PawnOwner.weapon.GotoState('Active');
 	if(PCOwner.InteractZombie==none)
-		PCOwner.gotoState(PCOwner.NormalStateName);
+	{
+		if(ZombieRushPawn(PawnOwner).TotalAmmo > 0 
+			&& ZombieRushPawn(PawnOwner).AmmoNum[ZombieRushPawn(PawnOwner).CurrentWeaponType] == 0)
+		  PawnOwner.DoSpecialmove(SM_Gun_Reload,true);
+		else
+			PCOwner.gotoState(PCOwner.NormalStateName);
+	}
 }
 
 event tickspecial(float deltaTime)
 {
-	if (bFirTimer)
-	{
-		FireDelay+=deltaTime;
-
-		if (FireDelay>PreFireTime)
-		{
-			bFirTimer=false;
-			FireDelay=0;
-            PlayFire();
-		}
-	}
 }
 DefaultProperties
 {
@@ -58,5 +47,5 @@ DefaultProperties
 	UseCustomRMM=True
 	RMMInAction=RMM_Translate
 	bDisableTurn=true
-	 PreFireTime=0.2
+	PreFireTime=0.2
 }

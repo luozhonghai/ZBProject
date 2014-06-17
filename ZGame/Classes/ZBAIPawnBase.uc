@@ -48,7 +48,7 @@ var AnimNodeBlend CustomAnimBlender;
 var int LastCustomAnimNodePlayIndex;
 //jump
 
-var bool bIsJumping;
+
 var float LastJumpHeight;
 
 //capture player 
@@ -272,7 +272,7 @@ RBA_Discard,
 */
 function StopConfigAnim(const  AnimationParaConfig AnimConfig, float BlendOutTime)
 {
-	Slot_FullBody.StopCustomAnim(AnimConfig.BlendOutTime);
+	CurrentActiveCustomAnimNode.StopCustomAnim(AnimConfig.BlendOutTime);
 }
 
 simulated event RootMotionModeChanged(SkeletalMeshComponent SkelComp)
@@ -347,9 +347,10 @@ function PlayerHurtByMe(vector loc,rotator rot)
 
 	//Controller.ClientSetLocation(loc,rot);
 	setphysics(PHYS_None);
+	
 	//setphysics(PHYS_Walking);
 //	CylinderComponent.SetCylinderSize(15,86);
-	SetCollision(true,false);	
+	SetCollision(false,false);	
 	// ClientSetLocation(ActivePlayerPawn.location,rotator(pawn.location - ActivePlayerPawn.location));
 	
 	DoSpecialMove(SM_MeleeAttack1, true);
@@ -361,11 +362,12 @@ function RecoverCollision()
 function PrePushedByPlayer()
 {
     DoSpecialMove(SM_Zombie_Pushed, true);
-    SetTimer(1.8,false,'RecoverCollision');
+  //  SetTimer(1.8,false,'RecoverCollision');
 }
 
 function PushedByPlayer()
 {
+	RecoverCollision();
    setphysics(PHYS_Falling);
    ZombieControllerTest(Controller). gotoState('MeleeAttackCold');
 }
@@ -403,8 +405,9 @@ function TakeExDamage()
  }
 DefaultProperties
 {
+    ZombieType=EZT_Walk
 
-      MaxStepHeight=26.0
+    MaxStepHeight=26.0
 	  GroundSpeed=50    //320 normal
 	  drawscale=1.0
 
@@ -441,6 +444,7 @@ DefaultProperties
 	//	AnimTreeTemplate=AnimTree'UN_Heidi.Anim.AT_heidi_01'
 	//	SkeletalMesh=SkeletalMesh'UN_Heidi.Mesh.HD_heidi_skin'
          AnimSets(0)=AnimSet'ZOMBIE_animation.zombie01_Anims'
+         AnimSets(1)=AnimSet'ZOMBIE_animation.zombie01_Anims_new'
 		 AnimTreeTemplate=AnimTree'ZOMBIE_animation.AT_Zombie01'
 		 SkeletalMesh=SkeletalMesh'Zombie.Character.zombie01'
 		  LightingChannels=(Dynamic=FALSE,Cinematic_1=TRUE,bInitialized=TRUE)
@@ -475,15 +479,15 @@ DefaultProperties
 		moveToPlayerNearRange=400   //move directly, no spline move, notice player when back face player
 		moveToPlayerCancelRange=2500  //900 normal
 
-		meleePrepareRange = 200
+		meleePrepareRange = 400 //200 init
 
 		range_meleeReady=300
 
 		cooldown_seconds_meleeAttack=3.5
 
-        cooldown_seconds_moveAway = 1.8
+    cooldown_seconds_moveAway = 1.8
 
-        cooldown_seconds_idle = 2.0
+    cooldown_seconds_idle = 2.0
 
 
 		// default bone names

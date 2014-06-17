@@ -1,10 +1,18 @@
 class ZombieRushPC extends ZombiePC;
 
 
+/* some basi and init parameters
+*/
 var Vector RushDir;
+var(Speed) float SprintSpeed;
+var(Speed) float RunSpeed;
+var(Speed) float WalkSpeed;
+var Rotator InitRot;
+const  VELOCITY_CONVER_FACTOR = 52.5;
 
-var float SwipeTraceDistance;
-var float MinMoveDistance,MinTapDistance;
+
+var(Input) float SwipeTraceDistance;
+var(Input) float MinMoveDistance,MinTapDistance;
 
 var Vector OrientVect[4];
 var int OrientIndex,OldOrientIndex;
@@ -38,9 +46,7 @@ var int LatentTurnCommand;
 var ZBEffectBuffer EntityBuffer;
 
 
-var float DefaultSpeed;
 
-var Rotator InitRot;
 function SetupZones()
 {
 	super.SetupZones();
@@ -71,7 +77,6 @@ function TransitToActor(Actor inActor)
 //function OnRushMobileMotion(PlayerInput PInput, vector CurrentAttitude, vector CurrentRotationRate, vector CurrentGravity, vector CurrentAcceleration)
 function OnRushMobileMotion(vector CurrentAttitude)
 {
-	local Rotator RotAttitude;
 	local float CurrentRollDeg,CurrentPitchDeg,StrafeMag;
 	//RotAttitude = Rotator(CurrentAttitude);
 	CurrentRollDeg = CurrentAttitude.z * UnrRotToDeg ;
@@ -122,6 +127,12 @@ function HurtByZombieCinematicRecover()
 state DoingSpecialMove
 {
 	function PlayerMove( float DeltaTime )
+	{
+	}
+	function InternalOnInputTouch(int Handle, ETouchType Type, Vector2D TouchLocation, float DeviceTimestamp, int TouchpadIndex)
+	{
+	}
+	function DoSwipeMove(Vector2D startLocation, Vector2D endLocation)
 	{
 	}
 }
@@ -310,52 +321,48 @@ state PlayerRush extends PlayerWalking
 		 
 		 if(ZombieRushPawn(Pawn)!=none && ZombieRushPawn(Pawn).bHitWall)
 		 {
-		 //	ZombieRushPawn(Pawn).bHitWall = false;
-		     return;
+		 //	stop when stay on front of blocade/wall, and unable jump forward
+`if(`isdefined(debug))
+		    if(ZombieRushPawn(Pawn).bIsJumping)
+		    {
+		    	ClientMessage("cant Jump forward when hit wall");
+		    }
+`endif		 	
+		    Pawn.Acceleration = vect(0,0,0);
+		 // restore power when blocked(2/s)
+		    ZombieRushPawn(Pawn).RestorePower(2 * DeltaTime);
+		    return;
 		 }
 		 
 		 // consume power when run
 		if(VSize(Pawn.Velocity) > 10)
-           ZombiePlayerPawn(Pawn).ConsumePower(1.67 * DeltaTime);
+           ZombieRushPawn(Pawn).ConsumePower(1.67 * DeltaTime);
 
  		// set ground speed
-		if(!ZombiePlayerPawn(Pawn).bIsJumping){
-		       SetDashSpeed(true);	
+		if(!ZombieRushPawn(Pawn).bIsJumping)
+		{
+		    SetDashSpeed(true);	
 
-        if(ZombiePlayerPawn(Pawn).PlayerPower>0)
-          Pawn.Acceleration = Pawn.AccelRate * RushDir;
-        else
-          GotoState('PlayerStop');
+        	if(ZombieRushPawn(Pawn).PlayerPower>0)
+         	 Pawn.Acceleration = Pawn.AccelRate * RushDir;
+       	    else
+         	 GotoState('PlayerStop');
 
-          if(bLongPressTimer)
+          	if(bLongPressTimer)
 					LongPressTime+= DeltaTime;
-		  if(LongPressTime >= 0.5f){
+		    if(LongPressTime >= 0.5f)
+		    {
                     bLongPressTimer = false;
+			}         
 		}
-        //  Pawn.Acceleration = vect(0,0,0);
-        /*
-		  Pawn.Velocity.X = FMin (abs(Pawn.Velocity.X) + 600  * DeltaTime, ForwardVel)  * RushDir.x;
-		  Pawn.Velocity.Y = FMin (abs(Pawn.Velocity.Y) + 600  * DeltaTime, ForwardVel)  * RushDir.y;	
-		  */	   
-		//  Pawn.Acceleration = Pawn.AccelRate * Normal (ForwardVel * RushDir + StrafeVelocity ) ;
-
-		 // Pawn.SetLocation(Pawn.Location + Pawn.Velocity * DeltaTime);
-          
-		}
-	 else
-       {
-        //  OldVelocityZ = Pawn.Velocity.Z;
-       	//  Pawn.Velocity = ForwardVel * Normal (ForwardVel * RushDir + StrafeVelocity ) ;
-        //  Pawn.Velocity.Z = OldVelocityZ;
-       	  Pawn.Velocity.X = ForwardVel * RushDir.x;
-		  Pawn.Velocity.Y = ForwardVel * RushDir.y;
-            //   Pawn.Velocity += StrafeVelocity;
-		}	
-		
-	  Pawn.SetRotation(Rotator(RushDir));
-	  SetRotation(Pawn.rotation);
-      ViewShake( deltaTime );
-	//UpdateRotation(DeltaTime);
+	 	else
+        {
+       	    Pawn.Velocity.X = ForwardVel * RushDir.x;
+		    Pawn.Velocity.Y = ForwardVel * RushDir.y;
+		}			
+	 	Pawn.SetRotation(Rotator(RushDir));
+	 	SetRotation(Pawn.rotation);
+     	ViewShake( deltaTime );
 	}
 
 	function InternalOnInputTouch(int Handle, ETouchType Type, Vector2D TouchLocation, float DeviceTimestamp, int TouchpadIndex)
@@ -413,7 +420,8 @@ state PlayerRush extends PlayerWalking
 			//	ClientMessage("ZombiePC.TouchEvents"@TouchLocation.x@TouchLocation.y);
 			// Remove the touch event from the TouchEvents array
            else if(LongPressTime<0.5f
-           	&&CustomVSize2D(TouchEvents[Index].ScreenLocation,TouchLocation)<MinTapDistance)
+           	&&CustomVSize2D(TouchEvents[Index].ScreenLocation,TouchLocation)<MinTapDistance
+           	&&!ZombieRushPawn(Pawn).IsDoingASpecialMove())
            {
                	  DoTouchMove(TouchLocation);
             } 
@@ -497,9 +505,9 @@ function PawnRanOffBlockade(vector HitNormal, optional bool bInverse)
 
 function DoSwipeMove(Vector2D startLocation, Vector2D endLocation)
 {
-         local float deltaX,deltaY,absDeltaY,absDeltaX;
+     local float deltaX,deltaY,absDeltaY,absDeltaX;
 		 local Vector HitLocation,HitNormal,TraceLoc;
-         local Actor HitActor;
+     local Actor HitActor;
      
 		 TraceLoc = SwipeTraceDistance * RushDir + Pawn.location;
 		 ////HitActor = Trace(HitLocation, HitNormal, CamPos, TargetLoc, TRUE, vect(12,12,12), HitInfo,TRACEFLAG_Blocking);
@@ -534,7 +542,7 @@ function DoSwipeMove(Vector2D startLocation, Vector2D endLocation)
 		OldVelocity = Pawn.Velocity;	
 		RushDir = OrientVect[OrientIndex]; 
 		 Pawn.Velocity = vect(0,0,0);
-		 if (Vsize(OldVelocity) > 500 && GetStateName()=='PlayerRush')
+		 if (/*Vsize(OldVelocity) > 500 &&*/ GetStateName()=='PlayerRush')
 		 {
 		    TurnMove(OldOrientIndex, OrientIndex);
 		 }		
@@ -668,28 +676,37 @@ function  DoTouchMove(Vector2d TouchLocation)
 {
 	local Vector HitLocation,HitNormal,TraceLoc;
     local Actor HitActor,PickedActor;
-		 TraceLoc = 300 * RushDir + Pawn.location;//(46: collisioncomponent radius)
-		    ////HitActor = Trace(HitLocation, HitNormal, CamPos, TargetLoc, TRUE, vect(12,12,12), HitInfo,TRACEFLAG_Blocking);
-		 HitActor = Trace(HitLocation, HitNormal, TraceLoc ,Pawn.location, FALSE, vect(12,12,12));
-			`if(`isdefined(debug))
-			DrawdebugLine(Pawn.location,TraceLoc,255,0,0,true);
-			`endif
-		 if( HitActor != None )
-		 {
-			 if(HitActor.IsA('InterpActor')&&HitActor.Tag=='luzhang_03')
-			 {
-			 	LatentClimbBlockade(HitLocation);
-				 return;
-			 }
-             PickedActor = PickActor(TouchLocation);
-			  if( PickedActor.IsA('ZBAIPawnBase')&&ZombieRushPawn(Pawn).WeaponList[2].isInState('Active'))
-			 {
-			 	   AvailableShootZombie = ZBAIPawnBase(PickedActor);
-			 	  super.StartFire(0); 
-			 	  return;       
-			 }
-		 }
-             CustomJump();
+
+	// first, if pick a zombie, fire to it when hold gun
+    PickedActor = PickActor(TouchLocation);
+	if( PickedActor!=none&&PickedActor.IsA('ZBAIPawnBase')
+		&&ZombieRushPawn(Pawn).WeaponList[2].isInState('Active'))
+	{
+		AvailableShootZombie = ZBAIPawnBase(PickedActor);
+		super.StartFire(0); 
+		return;       
+	}
+	// when run forward( velocity != 0), check if player can climb a climable blockade 
+	else if(!ZombieRushPawn(Pawn).bHitWall)
+	{
+     	TraceLoc = 300 * RushDir + Pawn.location;//(46: collisioncomponent radius)
+		////HitActor = Trace(HitLocation, HitNormal, CamPos, TargetLoc, TRUE, vect(12,12,12), HitInfo,TRACEFLAG_Blocking);
+		HitActor = Trace(HitLocation, HitNormal, TraceLoc ,Pawn.location, FALSE, vect(12,12,12));
+`if(`isdefined(debug))
+		DrawdebugLine(Pawn.location,TraceLoc,255,0,0,true);
+`endif
+		if( HitActor != None )
+		{
+			if(HitActor.IsA('InterpActor')&&( HitActor.Tag=='luzhang_03' || HitActor.Tag=='luzhang_03a'))
+			{
+				LatentClimbBlockade(HitLocation);
+				return;
+			}
+    	}		
+	}
+
+
+    CustomJump();
 }
 
 function LatentClimbBlockade(Vector ClimbPoint)
@@ -748,26 +765,26 @@ function ReCalcOrientVector()
 	local vector X,Y,Z;
 	GetAxes(Pawn.rotation,X,Y,Z);
 	   //cametype1
-	   /*
-    OrientIndex=0;
-    OrientVect[0] = X;
-	OrientVect[1] = Y;
-	OrientVect[2] = -X;
-	OrientVect[3] = -Y;*/
+	   
+    OrientIndex=3;
+    OrientVect[0] = Y;
+	OrientVect[1] = -X;
+	OrientVect[2] = -Y;
+	OrientVect[3] = X;
 
 	//cametype2
-	OrientIndex=2;
-    OrientVect[0] = -X;
-	OrientVect[1] = -Y;
-	OrientVect[2] = X;
-	OrientVect[3] = Y;
+	// OrientIndex=2;
+ //    OrientVect[0] = -X;
+	// OrientVect[1] = -Y;
+	// OrientVect[2] = X;
+	// OrientVect[3] = Y;
 }
 function SetDashSpeed(bool bDash,optional bool bInjuryPawn)
 {
 //rushPC 600 NORMAL SPEED   GROUND SPEED 10000
      if (ZombiePlayerPawn(Pawn).GetPower()>60)
      {
-		 ForwardVel = DefaultSpeed;       //15m/s 775
+		 ForwardVel = SprintSpeed * VELOCITY_CONVER_FACTOR;       //15m/s 775
 		//  Pawn.GroundSpeed = 525;		//10 m/s
 		if(ZombieRushPawn(Pawn)!=none)
 		  ZombieRushPawn(Pawn).SetWalkingStatus(false);
@@ -775,16 +792,16 @@ function SetDashSpeed(bool bDash,optional bool bInjuryPawn)
 	 else if(ZombiePlayerPawn(Pawn).GetPower()>20)
 	 {
 		// Pawn.GroundSpeed = 525;		//10 m/s
-	     ForwardVel = 630;		//12 m/s  630
+	     ForwardVel = RunSpeed * VELOCITY_CONVER_FACTOR; 	//12 m/s  630
 	     if(ZombieRushPawn(Pawn)!=none)
 		  ZombieRushPawn(Pawn).SetWalkingStatus(false);
 	  }
 	 else   // only can walk
 	 {
-		ForwardVel = 160;   //3m/s
+		ForwardVel = WalkSpeed * VELOCITY_CONVER_FACTOR;    //3m/s
 		if(ZombieRushPawn(Pawn)!=none)
 		  ZombieRushPawn(Pawn).SetWalkingStatus(true);
-		}
+	 }
 	ForwardVel *= EntityBuffer.VelocityScale;
 	Pawn.GroundSpeed = ForwardVel;
 }
@@ -827,14 +844,14 @@ exec function coeff(float a=60, float b=600){
 	StrafeMaxVel = b;
 }
 
-`if(`isdefined(debug))
+//`if(`isdefined(debug))
 exec function WP(EWeaponType PendingType)
 {
   ZombieRushPawn(Pawn).ConsoleSetActiveWeaponByType(PendingType);
 }
 exec function GRSPEED(float Speed)
 {
-  DefaultSpeed = Speed;
+  SprintSpeed = Speed;
 }
 exec function R1 ()
 {
@@ -848,9 +865,20 @@ exec function Power (float value)
 {
 	ZombieRushPawn(Pawn).PlayerPower = value;
 }
-`endif
+exec function ZBF ()
+{
+	// body...;
+	local ZBAIPawnBase P;
+	foreach AllActors(Class 'ZBAIPawnBase', P)
+	{
+		P.DoSpecialMove(SM_Zombie_Pushed,TRUE);
+	}
+}
+//`endif
 exec function StartFire( optional byte FireModeNum )
 {
+	if(ZombiePlayerPawn(Pawn).IsDoingASpecialMove() || ZombiePlayerPawn(Pawn).IsInstate('DoingSpecialMove'))
+		return;
 	NormalStateName = GetStateName();
 
 	if(!ZombiePlayerPawn(Pawn).IsDoingSpecialMove(SM_Combat_GetHurt)&&Pawn.physics!=PHYS_Falling){
@@ -869,14 +897,18 @@ exec function StartFire( optional byte FireModeNum )
 
 DefaultProperties
 {
+	SprintSpeed=13.0
+	RunSpeed=10.0
+	WalkSpeed=3.0
+
 	CameraClass=class'ZBRushCamera'
 	SwipeTraceDistance=2000
 
 	OldOrientIndex=0
 	OrientIndex=0
 
-	MinMoveDistance=15
-    MinTapDistance=8
+	MinMoveDistance=25   //15
+    MinTapDistance=15	 //8
 	StrafeCoeff=100
 	StrafeMaxVel=600
 	ForwardVel = 630    // infact 630->467

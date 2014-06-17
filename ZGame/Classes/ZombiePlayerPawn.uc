@@ -285,7 +285,7 @@ function bool DoJump( bool bUpdating )
 
 function DoRushJump()
 {
-	DoSpecialMove(SM_PHYS_Trans_Jump, false);
+	DoSpecialMove(SM_PHYS_Trans_Jump, true);
     Velocity.Z = 0.65*Sqrt(1 * 1060 * Abs(GetGravityZ()));//JumpZ;  WorldInfo.WorldGravityZ 
 	SetPhysics(PHYS_Falling);
 	bIsJumping = true;
@@ -801,9 +801,10 @@ DefaultProperties
 		AnimSets(1)=AnimSet'ZOMBIE_animation.zhujue_Anims'
 		AnimSets(2)=AnimSet'ZOMBIE_animation.zhujue_level_00_indoor_Anims'
 		AnimSets(3)=AnimSet'ZOMBIE_animation.zhujue_Anims_test'
+		AnimSets(4)=AnimSet'ZOMBIE_animation.zhujue_Anims_new'
 		AnimTreeTemplate=AnimTree'ZOMBIE_animation.AT_ZombieRole_01'
-		SkeletalMesh=SkeletalMesh'zombie.Character.zhujuemengpi_2'
-        PhysicsAsset=PhysicsAsset'zombie.Character.zhujuemengpi_2_Physics'
+		SkeletalMesh=SkeletalMesh'zombie.Character.actor_01'
+    PhysicsAsset=PhysicsAsset'zombie.Character.zhujuemengpi_2_Physics'
 		LightingChannels=(Dynamic=FALSE,Cinematic_1=TRUE,bInitialized=TRUE)
 	//	bHasPhysicsAssetInstance=true
 		//DepthPriorityGroup=SDPG_Foreground
@@ -852,7 +853,9 @@ DefaultProperties
 		SpecialMoveClasses(20)=class'ZGame.ZSM_TripOver'
 		SpecialMoveClasses(21)=class'ZGame.ZSM_ClimbBlocade'
 		SpecialMoveClasses(22)=class'ZGame.ZSM_RunTurn'
-   //    MaxStepHeight=20    //35 normal
+		SpecialMoveClasses(23)=class'ZGame.ZSM_Gun_Reload'
+		SpecialMoveClasses(24)=class'ZGame.ZSM_RunIntoWall'
+   //  MaxStepHeight=20    //35 normal
 	 //  MaxJumpHeight=0.0   //96 normal
 	  // WalkableFloorZ=0.001		   // 0.7 ~= 45 degree angle for floor
 	  WalkableFloorZ=0.78

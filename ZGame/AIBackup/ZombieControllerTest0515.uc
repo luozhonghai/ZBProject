@@ -43,22 +43,18 @@ var(Path)	int		AwareUpdateInterval;
 var float MoveToPlayerExpireTime;
 
 //for setDashSpeed()
-var const float DefaultIdleSpeed,DefaultChaseSpeed,DefaultFollowSpeed;
+var const float DefaultIdleSpeed,DefaultChaseSpeed;
 //for push rot set
 var vector PushOrientDir;
 
-// for meleeattack ready state 
-var vector FastMoveDest;
 
-var bool rotinterp;
 function DrawDebug(HUD myHud)
 {
 	//local Vector DebugInfoLoc;
 	// DebugInfoLoc = myHud.Canvas.Project(Pawn.Location);
 	myHud.Canvas.SetPos(400, 200);
 //	myHud.Canvas.DrawText("Controller State"@GetStateName() @"PawnSpeed"@Pawn.GroundSpeed);
- //   myHud.Canvas.DrawText("Controller rOT"@rotation @"PawnRot"@Pawn.Rotation);
-    myHud.Canvas.DrawText("RootMotionMode"@Pawn.Mesh.RootMotionMode);
+    myHud.Canvas.DrawText("Controller rOT"@rotation @"PawnRot"@Pawn.Rotation);
 }
 function initializeGame()
 {
@@ -71,7 +67,11 @@ function initializeGame()
 
 	//cast the ActiveAIPawn
 	ActiveAIPawn = ZBAIPawnBase(Pawn);
+
 	SpawnLocation = ActiveAIPawn.location;
+	//get the AnimationNode for animations
+	AnimationNodeSlot = AnimNodeSlot(Pawn.Mesh.FindAnimNode('CustomSlot'));
+
 	//give the zombie the force weapon
 //	ActiveAIPawn.AddDefaultInventory();
 }
@@ -83,23 +83,22 @@ protected event ExecuteWhatToDoNext()
         GotoState('ZombieDying');
 	
     distanceToPlayer = VSize(globalPlayerController.Pawn.Location - Pawn.Location);
-    /*
 	if(distanceToPlayer <ActiveAIPawn.GetCollisionRadius()+ActivePlayerPawn.GetCollisionRadius()+70
 		&&globalPlayerController.InteractZombie==none)
 		//&&AI_PlayerOnSameHeight())
 	//	&&!ZombiePawn(globalPlayerController.Pawn).IsDoingASpecialMove())
-		GotoState('MeleeAttackPlayer');*/
+		GotoState('MeleeAttackPlayer');
 	//else if(globalPlayerController.InteractZombie!=none//||ZombiePawn(globalPlayerController.Pawn).IsDoingASpecialMove())
-	if(distanceToPlayer < ActiveAIPawn.meleePrepareRange )
+	else if(distanceToPlayer < ActiveAIPawn.meleePrepareRange )
         GotoState('MeleeAttackPreparing');
-	else if(AI_PlayerInsight())
-		//||previousState == moveToPlayerState&&distanceToPlayer < ActiveAIPawn.moveToPlayerCancelRange)
+	else if(AI_PlayerInsight()
+		||previousState == moveToPlayerState&&distanceToPlayer < ActiveAIPawn.moveToPlayerCancelRange)
 		//&&globalPlayerController.InteractZombie==none)
 	{
-	//	if(frand()>0.3)
+		if(frand()>0.3)
 		GotoState(moveToPlayerState);
-	//	else
-		//GotoState(moveToPlayerState,'Idle');
+		else
+		GotoState(moveToPlayerState,'Idle');
 	}
 	else 
 
@@ -147,10 +146,9 @@ state Patrol
 	{
 		index = int(RandRange(1, 5));
 		//ActiveAIPawn.GroundSpeed = ActiveAIPawn.speed_outsideMeleeRange;
-		SetDashSpeed(1);
+		SetDashSpeed(false);
 		ActiveAIPawn.AccelRate = ActiveAIPawn.speed_normalAccel;
 		WanderCenter = ActiveAIPawn.Location;
-		Pawn.ZeroMovementVariables();
 	}
 
 
@@ -175,7 +173,7 @@ state Patrol
 		destination = Normal(ActivePlayerPawn.Location - ActiveAIPawn.Location);
 		//apply the rotation to the vector
 		destination = destination << vectorRotation;
-	//	ActiveAIPawn.SetRotation(Rotator(destination));
+		ActiveAIPawn.SetRotation(Rotator(destination));
 		//`log(""$(vectorRotation.Yaw / 182));
 		return destination;
 	}
@@ -189,19 +187,13 @@ state Patrol
 	}
 Begin:
 	previousState = GetStateName();
-	//for(counter = 0; counter < index; counter++)
-//	{
+	for(counter = 0; counter < index; counter++)
+	{
 		//`log("11");
 		WanderLocation = ActiveAIPawn.Location + (CalculateMovementDirection() * ActiveAIPawn.other_movementVectorLength * RandRange(0.7, 1));
 		if (VSize(WanderLocation - WanderCenter)<=WanderRange)
 		{
-			ActiveAIPawn.IdleNode.Rate = 0.7;
-			ActiveAIPawn.IdleNode.SetAnim('zombie03-move');
-			SetFocalPoint(WanderLocation);
-			//rotinterp = Pawn.SetDesiredRotation(Rotator(WanderLocation-ActiveAIPawn.Location),true,true,2);
-			//`log("rotinterp"@rotinterp);
-			FinishRotation();
-			MoveTo(WanderLocation);
+			MoveTo(WanderLocation, ActiveAIPawn);
 		}
 		else
 		{
@@ -211,11 +203,9 @@ Begin:
 			ActiveAIPawn.SetRotation(Rotator(SpawnLocation-ActiveAIPawn.location));
 			MoveTo(SpawnLocation, ActiveAIPawn);*/
 		}
-	//	Sleep(RandRange(1.3, 2));
-//	}
-	ActiveAIPawn.IdleNode.Rate = 1.0;
-    ActiveAIPawn.IdleNode.SetAnim('zombie01-daiji');
-	Sleep(RandRange(1.3, 2));
+		Sleep(RandRange(1.3, 2));
+	}
+	//Sleep(RandRange(1.3, 2));
 	LatentWhatToDoNext();
 }
 
@@ -227,13 +217,19 @@ state MoveToPlayerNoNav
 	{
 		//	ActiveAIPawn.GroundSpeed = ActiveAIPawn.speed_outsideMeleeRange;
 		ActiveAIPawn.AccelRate = ActiveAIPawn.speed_normalAccel;
-		SetDashSpeed(2);
+		SetDashSpeed(false);
+
+		if (AnimationNodeSlot.bIsPlayingCustomAnim)
+		{
+			AnimationNodeSlot.StopCustomAnim(0.5f);
+		}
 		MoveToPlayerExpireTime = 3.0f;
 	}
 	event bool NotifyHitWall(vector HitNormal, actor Wall)
 	{
-		 StopLatentExecution();
-		 WhatToDoNext();
+		StopLatentExecution();
+		WhatToDoNext();
+		//LatentWhatToDoNext();
 		return true;
 	}
 	simulated function Tick(float DeltaTime)
@@ -244,27 +240,24 @@ state MoveToPlayerNoNav
         if(MoveToPlayerExpireTime<=0 && MoveToPlayerExpireTime>-5)
          {
          	MoveToPlayerExpireTime = -10;
-         	SetFollowSpeedRange();
-			// StopLatentExecution();
-			// WhatToDoNext();
+			StopLatentExecution();
+			WhatToDoNext();
 		}
 		distanceToPlayer = VSize(globalPlayerController.Pawn.Location - Pawn.Location);
-
-		if(!AI_PlayerInsight())
+		if (distanceToPlayer < ActiveAIPawn.meleePrepareRange)
 		{
-		    StopLatentExecution();
-		    WhatToDoNext();
-		}
-		else if (distanceToPlayer < ActiveAIPawn.meleePrepareRange)
-		{
-			GotoState('MeleeAttackPreparing');
+			StopLatentExecution();
+			WhatToDoNext();
 		}
 		else if(globalPlayerController.InteractZombie!=none//||ZombiePawn(globalPlayerController.Pawn).IsDoingASpecialMove())
 			&&distanceToPlayer < ActiveAIPawn.meleePrepareRange )
 		{
-			GotoState('MeleeAttackPreparing');
+			//GotoState('MeleeAttackPreparing');
+			StopLatentExecution();
+			WhatToDoNext();
 		}
 
+		//performPhysics(DeltaTime);
 	}
 	function Vector CalculateDirectMovementDirection()
 	{
@@ -279,7 +272,6 @@ Begin:
 	{
 	// MoveTo(ActivePlayerPawn.Location + (CalculateDirectMovementDirection() * ActiveAIPawn.direct_movementVectorLength * RandRange(0.5, 1.0)), ActivePlayerPawn);
 		MoveToward(ActivePlayerPawn,ActivePlayerPawn);
-		FinishRotation();
 	    LatentWhatToDoNext();
 	}
 	else
@@ -301,7 +293,12 @@ state MoveToPlayer
 	{
 	//	ActiveAIPawn.GroundSpeed = ActiveAIPawn.speed_outsideMeleeRange;
 		ActiveAIPawn.AccelRate = ActiveAIPawn.speed_normalAccel;
-        SetDashSpeed(2);
+        SetDashSpeed(true);
+
+		if (AnimationNodeSlot.bIsPlayingCustomAnim)
+		{
+			AnimationNodeSlot.StopCustomAnim(0.5f);
+		}
 	}
 	simulated function Tick(float DeltaTime)
 	{
@@ -407,25 +404,9 @@ state MeleeAttackPreparing
 		stopLatentExecution();
 		Pawn.ZeroMovementVariables();
 		ActiveAIPawn.DoSpecialMove(SM_Zombie_MeleeAttackPre);
+		//Focus = none;
 	}
 
-    event bool NotifyBump(Actor Other, Vector HitNormal)
-	{
-		if(Other == ActivePlayerPawn)
-		  GotoState('MeleeAttackPlayer');
-		else if(Other.IsA('ZBAIPawnBase'))
-		{
-			stopLatentExecution();
-			WhatToDoNext();
-		}
-		return true;
-	}
-
-	event bool NotifyHitWall(vector HitNormal, actor Wall)
-	{
-		StopLatentExecution();
-		WhatToDoNext();
-	}
 	event EndState(Name NextStateName)
 	{
 		if(ActiveAIPawn.IsDoingSpecialMove(SM_Zombie_MeleeAttackPre))
@@ -435,28 +416,27 @@ state MeleeAttackPreparing
 	simulated function Tick(float DeltaTime)
 	{
 		global.tick(DeltaTime);
+		if (distanceToPlayer <ActiveAIPawn.GetCollisionRadius()+ActivePlayerPawn.GetCollisionRadius()+50)
+		{
+			StopLatentExecution();
+		//	WhatToDoNext();
+		}
 		performPhysics(DeltaTime);
 	}
 begin:
 	previousState = GetStateName();
+//	while(ActiveAIPawn.IsDoingASpecialMove())
+//		Sleep(0.0);
    if(globalPlayerController.InteractZombie!=none)
    {
-   	  if(ActiveAIPawn.IsDoingSpecialMove(SM_Zombie_MeleeAttackPre))
-	       ActiveAIPawn.EndSpecialMove();
    	  Focus = ActivePlayerPawn;
-   	  FinishRotation();
+	  Sleep(randrange(0.5,1.5));
    }
    else
    {
-   	SetDashSpeed(3);
-   	/*
+   	SetDashSpeed(true);
    	Focus = ActivePlayerPawn;
-   	MoveToward(ActivePlayerPawn,ActivePlayerPawn,0.0,true);  */
-   	FastMoveDest = ActivePlayerPawn.Location+ 0.02*ActivePlayerPawn.Velocity;
-   	FastMoveDest.Z = Pawn.Location.Z;
-  // 	Pawn.SetDesiredRotation(rotator(FastMoveDest - pawn.location));
-  // 	FinishRotation();
-   	MoveTo(FastMoveDest,ActivePlayerPawn,20);
+   	MoveToward(ActivePlayerPawn,ActivePlayerPawn,0.0,true);  
    }
 	LatentWhatToDoNext();
 	
@@ -498,14 +478,17 @@ begin:
 		stoplatentexecution();
 		if(ActiveAIPawn.health<=0)
 			LatentWhatToDoNext();
-
-    globalPlayerController.HurtByZombieCinematic(ActiveAIPawn);
-	//ZombiePlayerPawn(ActivePlayerPawn).HurtByZombie(rotator(pawn.location-ActivePlayerPawn.location),ActiveAIPawn);
-    Focus = none;
-	 // ActiveAIPawn.SaveLastRot();
-	  PushOrientDir = pawn.location - ActivePlayerPawn.location;
-	 // ClientSetRotation(rotator(-PushOrientDir));
-		ActiveAIPawn.PlayerHurtByMe(ActivePlayerPawn.location,rotator(-PushOrientDir));
+	//	Focus = ActiveAIPawn;
+    //    FinishRotation();
+    //    Focus = ActiveAIPawn;
+        globalPlayerController.HurtByZombieCinematic(ActiveAIPawn);
+	//	ZombiePlayerPawn(ActivePlayerPawn).HurtByZombie(rotator(pawn.location-ActivePlayerPawn.location),ActiveAIPawn);
+        Focus = none;
+	    ActiveAIPawn.SaveLastRot();
+	    PushOrientDir = pawn.location - ActivePlayerPawn.location;
+	   // PushOrientDir.z = 0;
+	    ClientSetLocation(ActivePlayerPawn.location,rotator(PushOrientDir));
+		ActiveAIPawn.PlayerHurtByMe(ActivePlayerPawn.location,rotator(PushOrientDir));
 		//ClientSetRotation(rotator(ActivePlayerPawn.location - pawn.location));
 	//	`log("Commit attack");
 	//	 LatentWhatToDoNext();
@@ -575,26 +558,17 @@ simulated function Tick(float DeltaTime)
 	updateTimers(DeltaTime);
 }*/
 
-function SetDashSpeed(int level)
+function SetDashSpeed(bool bDash)
 {
-	if (level == 1)
-	{
-		Pawn.GroundSpeed = DefaultIdleSpeed; //50
-	}
-	else if(level == 2)
-	{
-		Pawn.GroundSpeed = DefaultFollowSpeed;
-	}
-	else
+	if (bDash)
 	{
 	//	Pawn.GroundSpeed = 300;
 		Pawn.GroundSpeed = DefaultChaseSpeed;		//9 m/s =450
-	}	
+	}
+	else
+		Pawn.GroundSpeed = DefaultIdleSpeed; //50
 }
-function SetFollowSpeedRange()
-{
-	Pawn.GroundSpeed = DefaultIdleSpeed + FRand() * (DefaultFollowSpeed - DefaultIdleSpeed);
-}
+
 simulated function Tick(float DeltaTime)
 {
 	super.Tick(DeltaTime);
@@ -714,7 +688,6 @@ DefaultProperties
 		AwareUpdateInterval=30
 
 		moveToPlayerState="MoveToPlayerNoNav"
-		DefaultIdleSpeed=80   //50
-		DefaultFollowSpeed=250   //50
-		DefaultChaseSpeed=500 //400
+		DefaultIdleSpeed=50
+		DefaultChaseSpeed=400
 }

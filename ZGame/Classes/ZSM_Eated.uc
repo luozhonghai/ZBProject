@@ -22,8 +22,9 @@ function SpecialMoveEnded(ESpecialMove PrevMove, ESpecialMove NextMove)
 }
 
 DefaultProperties
-{
-	AnimCfg_Eated=(AnimationNames=("zhujue-siwang"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=false,blendintime=0.0,blendouttime=-1)
+{ 
+	//zhujue-siwang actor-death_01
+	AnimCfg_Eated=(AnimationNames=("actor-death_01"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=false,blendintime=0.0,blendouttime=-1)
 		UseCustomRMM=True
 		RMMInAction=RMM_Translate
 		bDisableMovement=true

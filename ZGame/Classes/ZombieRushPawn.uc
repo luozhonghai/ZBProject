@@ -2,7 +2,7 @@ class ZombieRushPawn extends ZombiePlayerPawn;
 
 
 enum EWeaponType
-{
+  {
 	EWT_None,
 	EWT_Axe,
 	EWT_Pistol,
@@ -10,9 +10,10 @@ enum EWeaponType
 	EWT_ScatterGun,
 };
 
+var int TotalAmmo;
 var array<int> AmmoNum;
 var array<ZBWeapon> WeaponList;
-
+  
 // Only in walking status, won't be tripped over by some blockades
 var private bool  bWalkingStatus;
 var bool bHitWall;
@@ -23,12 +24,12 @@ var EWeaponType CurrentWeaponType;
 
 event RanInto(Actor Other)
 {
-	super.RanInto(Other);
+	super.RanInto(Other);										
 }
 event Initialize()
 {
 	// Ensure Pawn initializes first
-	super.Initialize();
+	super.Initialize();		
 	//Add all weapons and switch to the certain
 	AddRushGameWeapons();
 }
@@ -91,20 +92,15 @@ event HitWall( vector HitNormal, actor Wall, PrimitiveComponent WallComp )
 	        TripOverByBlockade();
 	       else
 	        RanintoBlockade(-HitNormal);
-	    }
+	  }
+	   else if(Wall.Tag == 'zhangai_02')
+	    		TripOverByBlockade();
 	    else if(Wall.tag == 'juma_01')
 	        CollideCheval();
 	    else if(Wall.tag == 'dingci_01')
 	        ZombieRushPC(Controller).EntityBuffer.AddDingciEffect();
-	        /*
-	    else if(abs(HitNormal dot vector(Rotation)) > 0.5 )
-	    {
-	    	if (!ZombieRushPC(Controller).IsInState('MoveToCertainPoint') )
-	         RanOffBlockade(-HitNormal);
-	     }
-	    else
-	        RanintoBlockade(-HitNormal);*/
 	 }
+
 	else if(ZBLevelEntity_BlockadeTrip(Wall)!=None)
 	{
 		if(bWalkingStatus)
@@ -137,7 +133,12 @@ event HitWall( vector HitNormal, actor Wall, PrimitiveComponent WallComp )
 	 	if(FastTrace(ForwardTraceVector + Location + Y - Z, Location + Y - Z))
 	 		RanOffBlockade(HitNormal);
 	 	else if(FastTrace(ForwardTraceVector + Location - Y - Z, Location - Y - Z))
-	 	    RanOffBlockade(HitNormal,true);
+	 	  RanOffBlockade(HitNormal,true);
+	 	else
+	 	{
+	 		ZombieRushPC(Controller).GotoState('DoingSpecialMove');
+	 		DoSpecialMove(SM_RunIntoWall,true);
+	 	}
 	 }
 }
 
@@ -152,7 +153,7 @@ Super.Landed(HitNormal, FloorActor);
 	}
 	if(VerifySMHasBeenInstanced(SM_PHYS_Trans_Jump))
 	{
-		if (SpecialMove == SM_None)  //µ¥¶ÀÂäµØÊ± SpecialMove = SM_None
+		if (SpecialMove == SM_None)  //ÂµÂ¥Â¶Ã€Ã‚Ã¤ÂµÃ˜ÃŠÂ± SpecialMove = SM_None
 		{ 
 			SpecialMove=SM_PHYS_Trans_Jump;
 		}
@@ -242,19 +243,23 @@ function AnimNotify_Shoot()
 defaultproperties
 {
 	WeaponList(0)=None
+
+	TotalAmmo=100
 	AmmoNum(0)=-1
 	AmmoNum(1)=-1
-	AmmoNum(2)=10
+	AmmoNum(2)=5
 	AmmoNum(3)=10
 	AmmoNum(4)=10
 	PlayerPower=100
 	
-	 WalkableFloorZ=0.78
-	  MaxStepHeight=26.0
-	  MaxJumpHeight=49.0
+	WalkableFloorZ=0.78
+	MaxStepHeight=26.0
+	MaxJumpHeight=49.0
 
 
-  //     AccelRate = 0
-       WalkJumpScale=100       //45
-	  AirControl=+0.35
+  //AccelRate = 0
+  WalkJumpScale=100       //45
+	AirControl=+0.35
+
+
 }

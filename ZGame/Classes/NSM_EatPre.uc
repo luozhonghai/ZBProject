@@ -24,8 +24,9 @@ function SpecialMoveEnded(ESpecialMove PrevMove, ESpecialMove NextMove)
 
 DefaultProperties
 {
-	AnimCfg_EatPre=(AnimationNames=("zombie01-pudao"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=false,blendouttime=0.0)
-
+	//zombie01-pudao  zombie-pushdown
+	AnimCfg_EatPre=(AnimationNames=("zombie-pushdown"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=false,blendouttime=0.0)
+  
 		UseCustomRMM=True
 		RMMInAction=RMM_Translate
 

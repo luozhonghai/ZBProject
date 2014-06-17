@@ -13,9 +13,9 @@ event tick(float deltaTime)
 		if(IntervalTime>=1.0f)
 		{
 			IntervalTime=0.0f;
-		    BurnPawn.CustomTakeDamage(30);
-		    if(BurnPawn.GetCustomHealth()<=0)
-		      BurnPawn.BurnToDeath();
+		  BurnPawn.CustomTakeDamage(30);
+		  if(BurnPawn.GetCustomHealth()<=0)
+		    BurnPawn.BurnToDeath();
 		}
 	}
 }
@@ -41,7 +41,7 @@ event UnTouch( Actor Other )
 defaultproperties
 {
 	IntervalTime=0.0f
-		Begin Object Class=StaticMeshComponent Name=BulletPickUpComp
+	Begin Object Class=StaticMeshComponent Name=BulletPickUpComp
 		//model of bullet
 		StaticMesh=StaticMesh'Pickups.Armor_ShieldBelt.Mesh.S_UN_Pickups_Shield_Belt'
 		Scale3D=(X=1.5,Y=1.5,Z=1.5)

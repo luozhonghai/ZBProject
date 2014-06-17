@@ -45,15 +45,15 @@ DefaultProperties
 {
 
 //	AnimCfg_Hurt=(AnimationNames=("HD_heidi_hit01"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel)
-
-		AnimCfg_Hurt=(AnimationNames=("zhujue-zhengzha"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bloop=true)
-
 	//AnimCfg_Die=(AnimationNames=("HD_heidi_hit02"),PlayRate=1.000000,BlendOutTime=-1,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel)
 
-	AnimCfg_Die=(AnimationNames=("zhujue-siwang"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=false,blendintime=0.0,blendouttime=-1)
-
+	//AnimCfg_Hurt=(AnimationNames=("zhujue-zhengzha"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bloop=true)
+	//AnimCfg_Die=(AnimationNames=("zhujue-siwang"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=false,blendintime=0.0,blendouttime=-1)
 	AnimCfg_CollideCheval=(AnimationNames=("zhujue-zhasi"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=false,blendintime=0.0,blendouttime=-1)
 
+  AnimCfg_Hurt=(AnimationNames=("actor-Struggle_01"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bloop=true)
+	AnimCfg_Die=(AnimationNames=("actor-death_01"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=false,blendintime=0.0,blendouttime=-1)
+	
 	bDisableMovement=true
 	bDisableTurn=true
 }

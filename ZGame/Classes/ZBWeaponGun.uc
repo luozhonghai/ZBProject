@@ -81,7 +81,9 @@ simulated function Projectile ProjectileFire()
     local vector		StartTrace, EndTrace, RealStartLoc, AimDir;
 	local ImpactInfo	TestImpact;
  	local Projectile	SpawnedProjectile;
+  
 
+  ZombieRushPawn(instigator).AmmoNum[EWT_Pistol] -= 1;
 
 	ZombiePawn(instigator).GetFirSocketLocationAndDir(RealStartLoc,AimDir);
 	AimDir = Vector(ZombiePawn(instigator).rotation);

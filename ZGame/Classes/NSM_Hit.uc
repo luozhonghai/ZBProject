@@ -12,7 +12,10 @@ function SpecialMoveStarted(bool bForced, ESpecialMove PrevMove, optional INT In
 //	PawnOwner.Mesh.RootMotionMode = RMM_Ignore;
 	if (PawnOwner.health > 0)
 	{
-		PawnOwner.PlayConfigAnim(AnimCfg_Hit);
+		if(PawnOwner.ZombieType == EZT_Walk)
+			PawnOwner.PlayConfigAnim(AnimCfg_Hit);
+		else if (PawnOwner.ZombieType == EZT_Creep)
+			PawnOwner.PlayConfigAnim(AnimCfg_Hit_Leg);
 	}
 }
 
@@ -41,8 +44,8 @@ event tickspecial(float deltaTime)
 
 DefaultProperties
 {
-	//zombie01-zhua   zombie-baotui
-	AnimCfg_Hit=(AnimationNames=("zombie01-zhua"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=true)
+	//zombie01-zhua   zombie-baotui  zombie-Struggle_01
+	AnimCfg_Hit=(AnimationNames=("zombie-Struggle_01"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=true)
 	
 	AnimCfg_Hit_Leg=(AnimationNames=("zombie-baotui"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=true)
 }

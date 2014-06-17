@@ -3,6 +3,13 @@ class ZombiePawn extends UDKPawn;
 /** Defines the pawn's light environment */
 var DynamicLightEnvironmentComponent LightEnvironment;
 
+enum EZombieType
+{
+	EZT_Walk,
+	EZT_Creep,
+};
+
+var() EZombieType ZombieType;
 
 /** WeaponSocket contains the name of the socket used for attaching weapons to this pawn. */
 var name WeaponSocket,GunHoldSocket;
@@ -36,6 +43,8 @@ enum ESpecialMove
 	SM_TripOver,
 	SM_ClimbBlocade,
 	SM_RunTurn,
+	SM_Gun_Reload,
+	SM_RunIntoWall,
 };
 
 //AnimConfig

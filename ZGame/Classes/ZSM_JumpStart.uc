@@ -184,7 +184,7 @@ DefaultProperties
 //	AnimCfg_Landing=(AnimationNames=("zhujue_zhaodi"),PlayRate=1.50000,BlendInTime=0.2,bCauseActorAnimEnd=True,FakeRootMotionMode=RMM_Accel)
 
     AnimCfg_JumpStart=(AnimationNames=("zhujue-jumpup"),PlayRate=1.0,BlendOutTime=0.0,bCauseActorAnimEnd=True,FakeRootMotionMode=RMM_Accel)
-	AnimCfg_Landing=(AnimationNames=("zhujue-luodi"),PlayRate=0.75,BlendInTime=0.0,bCauseActorAnimEnd=True,FakeRootMotionMode=RMM_Accel)
+	AnimCfg_Landing=(AnimationNames=("zhujue-luodi"),PlayRate=0.75,BlendInTime=0.0,BlendOutTime=0.0,bCauseActorAnimEnd=True,FakeRootMotionMode=RMM_Accel)
 	AnimCfg_Jumping=(AnimationNames=("zhujue-jumpdown"),PlayRate=1.000000,bLoop=false,BlendOutTime=-1,bCauseActorAnimEnd=True,FakeRootMotionMode=RMM_Accel)
 
 	UseCustomRMM=false
