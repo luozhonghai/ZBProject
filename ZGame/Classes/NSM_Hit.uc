@@ -3,6 +3,8 @@ class NSM_Hit extends ZBSpecialMove;
 
 var() ZombiePawn.AnimationParaConfig		AnimCfg_Hit;
 
+var() ZombiePawn.AnimationParaConfig		AnimCfg_Hit_Back;
+
 var() ZombiePawn.AnimationParaConfig		AnimCfg_Hit_Leg;
 
 function SpecialMoveStarted(bool bForced, ESpecialMove PrevMove, optional INT InSpecialMoveFlags)
@@ -13,7 +15,12 @@ function SpecialMoveStarted(bool bForced, ESpecialMove PrevMove, optional INT In
 	if (PawnOwner.health > 0)
 	{
 		if(PawnOwner.ZombieType == EZT_Walk)
-			PawnOwner.PlayConfigAnim(AnimCfg_Hit);
+		{
+			if(InSpecialMoveFlags != 1)
+				PawnOwner.PlayConfigAnim(AnimCfg_Hit);
+			else
+				PawnOwner.PlayConfigAnim(AnimCfg_Hit_Back);
+		}
 		else if (PawnOwner.ZombieType == EZT_Creep)
 			PawnOwner.PlayConfigAnim(AnimCfg_Hit_Leg);
 	}
@@ -47,5 +54,7 @@ DefaultProperties
 	//zombie01-zhua   zombie-baotui  zombie-Struggle_01
 	AnimCfg_Hit=(AnimationNames=("zombie-Struggle_01"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=true)
 	
+	AnimCfg_Hit_Back=(AnimationNames=("zombie-Struggle_02"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=true)
+
 	AnimCfg_Hit_Leg=(AnimationNames=("zombie-baotui"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=true)
 }

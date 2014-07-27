@@ -59,6 +59,9 @@ var rotator LastRotation;
 
 var() PathNode JumpDownNode;
 
+//reference to my Spawn Node;
+var ZombieSpawnNodeDistance NodeOwner;
+//var bool bInitAnimFromSpawnNode;
 simulated function OnInitJumpAIPawn(SeqAct_InitJumpAIPawn inAction)
 {
 	`log("OnInitJumpAIPawn");
@@ -69,15 +72,13 @@ simulated function OnInitJumpAIPawn(SeqAct_InitJumpAIPawn inAction)
 event PostBeginPlay()
 {
 		super.PostBeginPlay();
-
-		if(NPCController == none)
-		{
-			//set the existing ControllerClass to our new NPCController class
-			NPCController = Spawn(NPCControllerType, self);
-			NPCController.SetPawn(self);
-		}
 }
-
+function SpawnController(class<ZombieControllerBase> ControllerType)
+{
+				//set the existing ControllerClass to our new NPCController class
+			NPCController = Spawn(ControllerType, self);
+			NPCController.SetPawn(self);
+}
 simulated function CacheAnimNodes()
 {
 	super.CacheAnimNodes();
@@ -89,12 +90,25 @@ simulated function CacheAnimNodes()
 
 	IdleNode = AnimNodeSequence(Mesh.FindAnimNode('IdleSequence'));
 	MoveNode = AnimNodeSequence(Mesh.FindAnimNode('MoveSequence'));
-	RunNode = AnimNodeSequence(Mesh.FindAnimNode('RunSequence'));
+	//RunNode = AnimNodeSequence(Mesh.FindAnimNode('RunSequence'));
+
+//	MoveNode.SetAnim('zombie03-move');
 	IdleNode.SetPosition(RandRange(0.0,IdleNode.GetAnimPlaybackLength()),false);
 	MoveNode.SetPosition(RandRange(0.0,MoveNode.GetAnimPlaybackLength()),false);
-	RunNode.SetPosition(RandRange(0.0,RunNode.GetAnimPlaybackLength()),false);
+	//RunNode.SetPosition(RandRange(0.0,RunNode.GetAnimPlaybackLength()),false);
+	//bInitAnimFromSpawnNode = true;
 }
 
+event tick(float deltaTime)
+{
+	super.Tick(deltaTime);
+	/* for test
+	if(bInitAnimFromSpawnNode && NodeOwner!=none)
+	{
+		bInitAnimFromSpawnNode = false;
+		NodeOwner.InitZombieAnim();
+	}*/
+}
 function AddDefaultInventory()
 {
 	local Weapon lWeaponCG;
@@ -327,8 +341,8 @@ event TakeDamage(int Damage, Controller InstigatedBy, vector HitLocation, vector
 
 	//only play hurt animation if being knocked back
 	//if(Mesh != None && abs(Mesh.FakeRootMotionScale) > 0 && Mesh.FakeRootMotionTotalTime > 0  )
-      EndSpecialMove();
-	  SetRotation(rotator(NPCController.ActivePlayerPawn.location-location));
+    EndSpecialMove();
+	  SetRotation(rotator(ZombiePlayerPawn(NPCController.ActivePlayerPawn).location-location));
 	   Health -= Damage;
 	   if(DamageType == class'DmgType_Gun_Fire')
 	     DoSpecialMove(SM_Combat_GetHurt, true, none,1);
@@ -341,33 +355,41 @@ event TakeDamage(int Damage, Controller InstigatedBy, vector HitLocation, vector
 	    NPCController.GotoState('Hurt','NoFocus'); //ËÀÍö²»³¯ÏòÍæ¼Ò
 }
 
-
+//from ZombieController
 function PlayerHurtByMe(vector loc,rotator rot)
 {
-
+	local int rotDeltaYaw;
+	rotDeltaYaw = abs(-rot.Yaw - NPCController.ActivePlayerPawn.rotation.Yaw);
 	//Controller.ClientSetLocation(loc,rot);
 	setphysics(PHYS_None);
-	
 	//setphysics(PHYS_Walking);
 //	CylinderComponent.SetCylinderSize(15,86);
 	SetCollision(false,false);	
 	// ClientSetLocation(ActivePlayerPawn.location,rotator(pawn.location - ActivePlayerPawn.location));
-	
-	DoSpecialMove(SM_MeleeAttack1, true);
+	ClientSetRotation(rot);
+	if(ZombieType == EZT_Walk && rotDeltaYaw >= 90* DegToUnrRot)
+  {
+		DoSpecialMove(SM_MeleeAttack1, true, ZombiePlayerPawn(NPCController.ActivePlayerPawn),1);
+	}
+	else
+	{
+		DoSpecialMove(SM_MeleeAttack1, true);
+	}
 }
+//called in SpecialMove: NSM_Pushed
 function RecoverCollision()
 {
 	SetCollision(true,true);
 }
+//zheng zha
 function PrePushedByPlayer()
 {
     DoSpecialMove(SM_Zombie_Pushed, true);
   //  SetTimer(1.8,false,'RecoverCollision');
 }
-
+// called form SpecialmoveEnded() of NSM_Pushed
 function PushedByPlayer()
 {
-	RecoverCollision();
    setphysics(PHYS_Falling);
    ZombieControllerTest(Controller). gotoState('MeleeAttackCold');
 }
@@ -429,7 +451,7 @@ DefaultProperties
 		End Object
 
 
-		Begin Object Class=SkeletalMeshComponent Name=InitialSkeletalMesh
+		Begin Object Class=UDKSkeletalMeshComponent Name=InitialSkeletalMesh
 		CastShadow=true
 		bCastDynamicShadow=true
 		bOwnerNoSee=false
@@ -438,6 +460,9 @@ DefaultProperties
 		BlockRigidBody=true;
 	CollideActors=true;
 	BlockZeroExtent=true;
+//	bUseRawData=true
+//	AnimRotationOnly=EARO_ForceDisabled
+//	RootMotionRotationMode=RMRM_RotateActor
 	//PhysicsAsset=PhysicsAsset'CH_AnimCorrupt.Mesh.SK_CH_Corrupt_Male_Physics'
 	//	AnimSets(0)=AnimSet'UN_Heidi.Anim.HD_heidi_skin_Anims'
 		//AnimSets(1)=AnimSet'CH_AnimHuman.Anims.K_AnimHuman_BaseMale'
@@ -447,7 +472,10 @@ DefaultProperties
          AnimSets(1)=AnimSet'ZOMBIE_animation.zombie01_Anims_new'
 		 AnimTreeTemplate=AnimTree'ZOMBIE_animation.AT_Zombie01'
 		 SkeletalMesh=SkeletalMesh'Zombie.Character.zombie01'
-		  LightingChannels=(Dynamic=FALSE,Cinematic_1=TRUE,bInitialized=TRUE)
+		  LightingChannels=(Dynamic=TRUE,Cinematic_1=FALSE,bInitialized=TRUE)
+		  bAcceptsDynamicDominantLightShadows=FALSE
+		  bNoModSelfShadow=true
+		 // AbsoluteRotation=true
 		//DepthPriorityGroup=SDPG_Foreground
 		End Object
 
@@ -461,7 +489,7 @@ DefaultProperties
 
 //	NPCControllerType=class'HeiDAIControllerTest'
 		
-        direct_movementVectorLength=10
+    direct_movementVectorLength=10
 
 
 		other_movementVectorLength=200
@@ -476,14 +504,14 @@ DefaultProperties
 
 
 		moveToPlayerUpperRange=1000  //600 normal  direct see player
-		moveToPlayerNearRange=400   //move directly, no spline move, notice player when back face player
+		moveToPlayerNearRange=700   //move directly, no spline move, notice player when back face player
 		moveToPlayerCancelRange=2500  //900 normal
 
-		meleePrepareRange = 400 //200 init
+		meleePrepareRange = 300 //200 init
 
 		range_meleeReady=300
 
-		cooldown_seconds_meleeAttack=3.5
+		cooldown_seconds_meleeAttack=12.5 //3.5
 
     cooldown_seconds_moveAway = 1.8
 
@@ -499,11 +527,11 @@ DefaultProperties
 		SpecialMoveClasses(2)=Class'ZGame.NSM_Hit'
 		SpecialMoveClasses(3)=Class'ZGame.ZSM_Hit_Two'
 		SpecialMoveClasses(4)=Class'ZGame.ZSM_Hit_Thr'
-        SpecialMoveClasses(5)=class'ZGame.ZSM_JumpStart'
+    SpecialMoveClasses(5)=class'ZGame.ZSM_JumpStart'
 		SpecialMoveClasses(6)=class'ZGame.NSM_GetHurt'
 		SpecialMoveClasses(7)=none
 		SpecialMoveClasses(8)=none
-        SpecialMoveClasses(9)=none
+    SpecialMoveClasses(9)=none
 		SpecialMoveClasses(10)=class'ZGame.NSM_Pushed'
 		SpecialMoveClasses(11)=none
 		SpecialMoveClasses(12)=class'ZGame.NSM_EatPre'

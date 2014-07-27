@@ -1,25 +1,24 @@
-class ZBLevelEntity_MedKit extends ZBLevelEntity;
+class ZBLevelEntity_HealthMedKit extends ZBLevelEntity;
 
-var() int PowerAmount;
-//add health instant
+var() int HealthAmount;
 event Touch( Actor Other, PrimitiveComponent OtherComp, vector HitLocation, vector HitNormal )
 {
 	local ZombiePlayerPawn P;
 	P = ZombiePlayerPawn(Other);
 	if( P != None )
 	{
-	  P.RestorePower(PowerAmount);
+	  P.RestoreHealth(HealthAmount);
 	   Destroy();
 	}
 }
 
 defaultproperties
 {
-	PowerAmount=20
+	HealthAmount=20
 	CollisionComponent=CollisionCylinder0
 	Begin Object Class=StaticMeshComponent Name=BulletPickUpComp
-		//model of MedKit
-		StaticMesh=StaticMesh'supplies.firstaid.water_small'
+		//model of power medcine
+		StaticMesh=StaticMesh'supplies.firstaid.firstaid_small'
 		Scale3D=(X=1.0,Y=1.0,Z=1.0)
 		AlwaysLoadOnClient=TRUE
 		AlwaysLoadOnServer=TRUE

@@ -59,7 +59,7 @@ event PostLogin(PlayerController rPlayerController)
 	}*/
 
 	// Log that we're done
-	LogInternal("NXGameInfo.PostLogin");
+	//LogInternal("NXGameInfo.PostLogin");
 }
 
 

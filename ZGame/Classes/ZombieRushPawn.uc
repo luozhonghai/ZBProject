@@ -22,6 +22,8 @@ var actor interactActor;
 
 var EWeaponType CurrentWeaponType;
 
+var bool bCaptureCase;
+var Vector PushCasePoint,MoveToCaseDir;
 event RanInto(Actor Other)
 {
 	super.RanInto(Other);										
@@ -30,8 +32,13 @@ event Initialize()
 {
 	// Ensure Pawn initializes first
 	super.Initialize();		
+
+  //look for pre hold weapon cross level , other wise get EWT_None
+	CurrentWeaponType = ZombieRushGame(WorldInfo.Game).PreWeaponType;
 	//Add all weapons and switch to the certain
 	AddRushGameWeapons();
+  //clear temp level trans info
+	ZombieRushGame(WorldInfo.Game).ClearTempLevelInfo();
 }
 function AddRushGameWeapons()
 {	
@@ -41,7 +48,7 @@ function AddRushGameWeapons()
 	WeaponList[1].bCanThrow = false; // don't allow default weapon to be thrown out
 	InvManager.AddInventory( WeaponList[2],true );
 	WeaponList[2].bCanThrow = false; // don't allow default weapon to be thrown out
-	super.SetActiveWeapon(WeaponList[0]);
+	SetActiveWeaponByType(CurrentWeaponType);
 }
 function SetActiveWeaponByType(EWeaponType PendingType)
 {
@@ -58,7 +65,23 @@ function AddWeaponAmmo(EWeaponType PendingType, int Num)
 	if(Num>0)
 	  AmmoNum[PendingType] += Num;
 }	
-
+function AddSharedWeaponAmmo(int Num)
+{
+	if(Num>0)
+	  TotalAmmo += Num;
+}	
+function AddAmmoToCurrentWeapon()
+{
+	local int AmmoCount;
+	if(TotalAmmo >= 10)
+	{
+		AmmoCount = 10;
+	}
+	else
+	  AmmoCount = TotalAmmo;
+	AmmoNum[CurrentWeaponType] += AmmoCount;
+	TotalAmmo -= AmmoCount;
+}
 event Bump( Actor Other, PrimitiveComponent OtherComp, Vector HitNormal )
 {
 	super.Bump(Other,OtherComp,HitNormal);
@@ -73,7 +96,10 @@ event Bump( Actor Other, PrimitiveComponent OtherComp, Vector HitNormal )
 event HitWall( vector HitNormal, actor Wall, PrimitiveComponent WallComp )
 {
 	//use to find avoid direction when hit wall
-	local Vector ForwardTraceVector,X,Y,Z;
+	local Vector ForwardTraceVector,LeftForwardTraceVector,RightForwardTraceVector,X,Y,Z;
+
+	if( ZombieRushPC(Controller).IsInState('FallingHole'))
+	  return;
 	super.HitWall(HitNormal,Wall,WallComp);
 	
 	if(bHitWall)
@@ -86,7 +112,7 @@ event HitWall( vector HitNormal, actor Wall, PrimitiveComponent WallComp )
 		if(bWalkingStatus)
 		   return;
 		   
-		if(Wall.Tag=='luzhang_01' || Wall.Tag=='luzhang')
+		if(Wall.Tag=='luzhang_01' || Wall.Tag=='luzhang' || Wall.Tag=='langan_02')
 		{
 		   if(abs(Vector(Wall.Rotation) dot vector(Rotation)) < 0.75)
 	        TripOverByBlockade();
@@ -99,6 +125,14 @@ event HitWall( vector HitNormal, actor Wall, PrimitiveComponent WallComp )
 	        CollideCheval();
 	    else if(Wall.tag == 'dingci_01')
 	        ZombieRushPC(Controller).EntityBuffer.AddDingciEffect();
+	    else if(Wall.tag == 'xiangzi_01' && !bCaptureCase && !IsDoingASpecialMove()&& CanGetCase())
+	    {
+	    	  ZeroMovementVariables();
+	    	  //avoid unknown translation of case if trigger instantly...
+					SetTimer(0.01,false,'PushCase');
+					// ignore turn around during this interval
+					ZombieRushPC(Controller).bReceiveInput = false;
+	    }
 	 }
 
 	else if(ZBLevelEntity_BlockadeTrip(Wall)!=None)
@@ -110,7 +144,7 @@ event HitWall( vector HitNormal, actor Wall, PrimitiveComponent WallComp )
 		   if(abs(Vector(Wall.Rotation) dot vector(Rotation)) < 0.75)
 			TripOverByBlockade();
 		   else
-	        RanintoBlockade(-HitNormal);
+	        RanintoBlockade(-HitNormal); 
 		}
 		if(ZBLevelEntity_BlockadeTrip(Wall).BlockadeType==1) //"luzhang_03"
 		{
@@ -126,15 +160,32 @@ event HitWall( vector HitNormal, actor Wall, PrimitiveComponent WallComp )
 	 else
 	 {
 	 	GetAxes(Rotation,X,Y,Z);
-	 	Y *= GetCollisionRadius();
+	 	//ignore sometimes  hit wall from side vertically
+	 	if(abs(X dot HitNormal) <=0.2)
+	 	{
+	 		RanStrafe(1000,HitNormal);
+	 		return;
+	 	}
+	 	Y *= 2*GetCollisionRadius();
 	 	Z *= GetCollisionHeight();
-	 	ForwardTraceVector = Vector(Rotation) * (GetCollisionRadius() + 150);
+	 	ForwardTraceVector = Vector(Rotation) * (3*GetCollisionRadius());
+	  LeftForwardTraceVector = (3 * GetCollisionRadius()  )* HitNormal cross vect(0,0,-1);
+    RightForwardTraceVector = (3 * GetCollisionRadius()  ) * HitNormal cross vect(0,0, 1);
 	 	// need other content !!!!!not trace pawns
-	 	if(FastTrace(ForwardTraceVector + Location + Y - Z, Location + Y - Z))
-	 		RanOffBlockade(HitNormal);
-	 	else if(FastTrace(ForwardTraceVector + Location - Y - Z, Location - Y - Z))
-	 	  RanOffBlockade(HitNormal,true);
-	 	else
+`if(`isdefined(debug))	 	
+	 	DrawDebugLine(ForwardTraceVector + Location + Y , Location + Y ,0,255,0,true);
+			DrawDebugLine(ForwardTraceVector + Location - Y , Location - Y ,0,255,0,true);
+	DrawDebugLine(LeftForwardTraceVector + Location  , Location ,0,255,0,true);
+	DrawDebugLine(RightForwardTraceVector + Location  , Location ,0,255,0,true);
+`endif
+
+	 	if(FastTrace(LeftForwardTraceVector + Location  , Location ,vect(46,46,90))
+	 		&& FastTrace(ForwardTraceVector + Location  - Y , Location - Y ,vect(46,46,90)))
+	 		RanOffBlockade(HitNormal,true);
+	 	else if(FastTrace(RightForwardTraceVector + Location  , Location  , vect(46,46,90))
+	 		&& FastTrace(ForwardTraceVector + Location  + Y , Location + Y ,vect(46,46,90)))
+	 	  RanOffBlockade(HitNormal);
+	 	else 
 	 	{
 	 		ZombieRushPC(Controller).GotoState('DoingSpecialMove');
 	 		DoSpecialMove(SM_RunIntoWall,true);
@@ -142,11 +193,37 @@ event HitWall( vector HitNormal, actor Wall, PrimitiveComponent WallComp )
 	 }
 }
 
+function bool PhysicsTraceFowardBlocked(Vector Dir)
+{
+	local Vector Extent,Forward;
+  Forward =  Normal(Dir) * (GetCollisionRadius() + 1);
+  Extent.X = GetCollisionRadius();
+  Extent.Y = Extent.X;
+  Extent.Z = GetCollisionHeight();
+	return !FastTrace(Forward + Location  , Location ,Extent);
+}
+function bool PhysicsTraceFowardHole()
+{
+	local Vector lStart,lEnd,lHitLocation,lHitNormal;
+	local Actor lHitActor;
+	lStart = Location;
+	lStart.z -= GetCollisionHeight();
+	lEnd= lStart + Normal(Velocity)*(20 + GetCollisionRadius());
+  lHitActor = Trace(lHitLocation, lHitNormal, lEnd, lStart, true, , , TRACEFLAG_Bullet);
+  if(ZBLevelEntity_Hole(lHitActor)!=none)
+  	return true;
+  else
+  	return false;
+}
+function  LatentPushCase()
+{
+	DoSpecialMove(SM_PushCase,true);
+}
 event Landed(vector HitNormal, Actor FloorActor)
 {
 //	bHitWall = false;
-Super.Landed(HitNormal, FloorActor);
-    GotoState('IgnoreWall');
+	Super.Landed(HitNormal, FloorActor);
+  //GotoState('IgnoreWall');
 	if(SpecialMove==SM_PHYS_Trans_Jump)
 	{
 		ZSM_JumpStart(SpecialMoves[SpecialMove]).Landed(true);
@@ -206,6 +283,10 @@ function RanOffBlockade(vector HitNormal,optional bool bInverse)
 {
 	ZombieRushPC(Controller).PawnRanOffBlockade(HitNormal,bInverse);
 }
+function RanStrafe(float Mag, vector Dir)
+{
+	ZombieRushPC(Controller).PawnRanStrafe(Mag, Dir);
+}
 ///burn by fire collection
 function  BurnToDeath()
 {
@@ -233,7 +314,191 @@ function RestorePower(float amount)
 	}
 }
 
+function bool CanGetCase()
+{
+	local Vector lHitNormalTop,lHitLocationTop,lEndTop,lStartTop;
+    local Actor lHitActorTop;
+    local Vector lForward;
 
+    lForward = TransformVectorByRotation(Rotation, TraversalRays[0].Length);
+    lStartTop = Location ;//+ 0.1* GetCollisionHeight() * vect(0,0,1);
+  	lEndTop = lStartTop + lForward;
+`if(`isdefined(debug))
+  	drawdebugline(lStartTop,lEndTop,255,0,0,true);
+`endif
+  	lHitActorTop = Trace(lHitLocationTop, lHitNormalTop, lEndTop, lStartTop, true, , , TRACEFLAG_Bullet);
+
+  	return InterpActor(lHitActorTop) != none && (lHitActorTop.tag=='Case' || lHitActorTop.tag=='xiangzi_01');
+
+}
+//Push Cases
+function bool PushCase()
+{
+	local Vector lStart,lStartLeft,lStartRight;
+	local Vector lEnd, lEndLeft, lEndRight;
+	local Vector lForward;
+	local Vector lHitLocation, lHitLocationLeft, lHitLocationRight;
+	local Vector lHitNormal, lHitNormalLeft, lHitNormalRight;
+	local Actor lHitActor, lHitActorLeft ,lHitActorRight ;
+	local bool leftCapture, rightCapture;
+
+	local Vector offsetX, offsetY;
+  
+    
+  ZombieRushPC(Controller).bReceiveInput = true;
+	// Determine the start and end points
+	lStart = TransformVectorByRotation(Rotation, TraversalRays[0].Start);
+	lStart = Location + lStart;
+	lForward = TransformVectorByRotation(Rotation, TraversalRays[0].Length);
+	lEnd = lStart + lForward;
+	// Test if we collide with Case. 
+	lHitActor = Trace(lHitLocation, lHitNormal, lEnd, lStart, true, , , TRACEFLAG_Bullet);
+
+	lStartLeft = TransformVectorByRotation(Rotation, TraversalRays[1].Start);
+	lStartLeft = Location + lStartLeft;
+	lEndLeft = lStartLeft + lForward;
+  lHitActorLeft = Trace(lHitLocationLeft, lHitNormalLeft, lEndLeft, lStartLeft, true, , , TRACEFLAG_Bullet);
+
+  lStartRight = TransformVectorByRotation(Rotation, TraversalRays[2].Start);
+	lStartRight = Location + lStartRight;
+	lEndRight = lStartRight + lForward;
+  lHitActorRight = Trace(lHitLocationRight, lHitNormalRight, lEndRight, lStartRight, true, , , TRACEFLAG_Bullet);
+  
+
+
+  leftCapture = InterpActor(lHitActorLeft) != none && (lHitActorLeft.tag=='Case' || lHitActorLeft.tag=='xiangzi_01');
+  rightCapture = InterpActor(lHitActorRight) != none && (lHitActorRight.tag=='Case' || lHitActorRight.tag=='xiangzi_01');
+	//drawdebugline(lStart,lEnd,255,0,0,true);
+	/*
+	if (InterpActor(lHitActor) != none && (lHitActor.tag=='Case' || lHitActor.tag=='xiangzi_01'))
+	{
+		 SetRotation(rotator(-lHitNormal));
+		InteractCase = lHitActor;
+		//InteractCase.setphysics(PHYS_Interpolating);
+		
+		bCaptureCase = true;
+	//	ZombieRushPC(Controller).GotoState('DoingSpecialMove');
+		DoSpecialMove(SM_PushCase,true);
+		return true;
+	}*/
+
+	if(leftCapture && rightCapture)
+	{
+	//	SetRotation(rotator(-lHitNormalLeft));
+		InteractCase = lHitActor;		
+	//	InteractCase.setBase(self);
+		bCaptureCase = true;
+		offsetX =  - TransformVectorByRotation(Rotation, vect(10,0,0));
+		//DoSpecialMove(SM_PushCase,true);
+		PushCasePoint = Location + offsetX;
+		MoveToCaseDir = Normal(offsetX);
+		ZombieRushPC(Controller).PushState('MoveToPushCasePoint');
+		return true;
+	}
+	else if(!rightCapture)
+	{
+		lStartRight = lEndRight;
+		lEndRight = lStartRight + TransformVectorByRotation(Rotation, 2 * GetCollisionRadius() * vect(0, -1, 0));
+		// capture the right side of case
+		Trace(lHitLocationRight, lHitNormalRight, lEndRight, lStartRight, true, , , TRACEFLAG_Bullet);
+		offsetY = lHitLocationRight - lStartRight;
+
+		offsetX = lHitLocationLeft - lStartLeft - TransformVectorByRotation(Rotation, vect(10,0,0) + GetCollisionRadius() * vect(1,0,0));
+    
+   // SetLocation(Location + offsetX + offsetY);
+	//	SetRotation(rotator(-lHitNormalLeft));
+		InteractCase = lHitActorLeft;	
+	
+		bCaptureCase = true;
+		PushCasePoint = Location + offsetX + offsetY;
+		MoveToCaseDir = Normal(offsetX + offsetY);
+		ZombieRushPC(Controller).PushState('MoveToPushCasePoint');
+		return true;
+	//	SetTimer(0.2,false,'LatentDoPushCase');
+	}
+	else if(!leftCapture)
+	{
+		lStartLeft = lEndLeft;
+		lEndLeft = lStartLeft + TransformVectorByRotation(Rotation, 2 * GetCollisionRadius() * vect(0, 1, 0));
+		// capture the right side of case
+		Trace(lHitLocationLeft, lHitNormalLeft, lEndLeft, lStartLeft, true, , , TRACEFLAG_Bullet);
+		offsetY = lHitLocationLeft - lStartLeft;
+
+		offsetX = lHitLocationRight - lStartRight - TransformVectorByRotation(Rotation, vect(10,0,0) + GetCollisionRadius() * vect(1,0,0));
+    
+ //   SetLocation(Location + offsetX + offsetY);
+	//	SetRotation(rotator(-lHitNormalLeft));
+		InteractCase = lHitActorRight;		
+		
+		bCaptureCase = true;
+		PushCasePoint = Location + offsetX + offsetY;
+		MoveToCaseDir = Normal(offsetX + offsetY);
+		ZombieRushPC(Controller).PushState('MoveToPushCasePoint');
+		return true;
+		//SetTimer(0.2,false,'LatentDoPushCase');
+	}
+	else
+		return false;
+} 
+function DoPushCase()
+{
+	//	InteractCase.setBase(self);
+	DoSpecialMove(SM_PushCase,true);
+}
+function bool TraceCaseBlocked()
+{
+	local Vector lStart;
+	local Vector lEnd;
+	local vector Zoffset;
+	local bool res1_left,res2_right,res3_mid,res_final;
+
+	Zoffset = vect(0,0,10);
+    if (InteractCase != none)
+    {
+		lStart = InteractCase.Location;
+		lStart.z += 60;
+		lEnd = TransformVectorByRotation(Rotation, CaseTraceVector);
+		lEnd = lStart + lEnd;
+`if(`isdefined(debug))
+		drawdebugline(lStart,lEnd,255,0,0,true);
+`endif	
+	//	returns true if did not hit world geometry
+        res3_mid=InteractCase.FastTrace(lEnd,lStart,CaseTraceExtent);
+
+		lStart = InteractCase.Location + Zoffset + TransformVectorByRotation(Rotation, vect(0,-60,0));
+		lEnd = TransformVectorByRotation(Rotation, CaseTraceVector);
+		lEnd = lStart + lEnd;
+`if(`isdefined(debug))
+		drawdebugline(lStart,lEnd,255,0,0,true);
+`endif	
+		// returns true if did not hit world geometry
+		res1_left=InteractCase.FastTrace(lEnd,lStart);
+
+		lStart = InteractCase.Location + Zoffset + TransformVectorByRotation(Rotation, vect(0,60,0));
+		lEnd = TransformVectorByRotation(Rotation, CaseTraceVector);
+		lEnd = lStart + lEnd;
+`if(`isdefined(debug))
+		drawdebugline(lStart,lEnd,255,0,0,true);
+`endif	
+		// returns true if did not hit world geometry
+		res2_right=InteractCase.FastTrace(lEnd,lStart);
+
+    res_final = !(res1_left && res3_mid && res2_right);
+		return res_final;
+    }
+
+	return false;
+}
+
+event Touch( Actor Other, PrimitiveComponent OtherComp, vector HitLocation, vector HitNormal ){
+	super.Touch(Other, OtherComp, HitLocation, HitNormal);
+	/*
+	if(LevelTransVolume(Other) != none && LevelTransVolume(Other).NextLevelName!="")
+	{		
+		ZombieRushPC(Controller).TransNextLevel(LevelTransVolume(Other).NextLevelName);
+	}*/
+	
+}
 //AnimNotify
 function AnimNotify_Shoot()
 {
@@ -244,10 +509,10 @@ defaultproperties
 {
 	WeaponList(0)=None
 
-	TotalAmmo=100
+	TotalAmmo=1
 	AmmoNum(0)=-1
 	AmmoNum(1)=-1
-	AmmoNum(2)=5
+	AmmoNum(2)=1
 	AmmoNum(3)=10
 	AmmoNum(4)=10
 	PlayerPower=100

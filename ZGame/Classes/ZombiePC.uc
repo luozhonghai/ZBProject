@@ -1,6 +1,6 @@
 class ZombiePC extends SimplePC;
 
-
+var bool GameDebug;
 var() name NormalStateName;
 
 var float SwipeTolerance;
@@ -86,7 +86,10 @@ exec function ToggleCamera()
 
 }
 
-
+event PostBeginPlay()
+{
+	super.PostBeginPlay();
+}
 /** Initialization function called from the GameInfo class.  Any initialization
  *  should be done here.  I thought we could use PostPlayBegin, but in looking
  *  through the root objects, not everything is initialized for us by then.  This
@@ -614,16 +617,23 @@ state CaptureByZombie
 	exec function StartFire( optional byte FireModeNum ){}
 	event BeginState(Name PreviousStateName)
 	{
+		local Vector OrientDir;
 		Pawn.ZeroMovementVariables();
 		bSwipeCapturePlayer = true;
 		SwipeCounter = 0;
 
-        ZombiePlayerPawn(Pawn).CustomTakeDamage(10);
-
+    ZombiePlayerPawn(Pawn).CustomTakeDamage(10);
+		OrientDir = InteractZombie.location-Pawn.location;
+    OrientDir.z = 0;
 		if (ZombiePlayerPawn(Pawn).GetCustomHealth()<=0)
 		{
+			ZombiePlayerPawn(Pawn).InitPosEatByZombie(rotator(OrientDir),InteractZombie);
 			CaptureActTimeEnd();
 		}
+    else
+    {
+      ZombiePlayerPawn(Pawn).HurtByZombie(rotator(OrientDir),InteractZombie);
+    }
 
 
 		ZombieHud(myhud).SetActionFunction(TapActionButton);
@@ -1137,12 +1147,9 @@ function CustomJump()
 // for cinematic action
 function HurtByZombieCinematic(ZBAIPawnBase zombie)
 {
-	InteractZombie = zombie;
+	  InteractZombie = zombie;
     SetCinematicMode(true,false,false,true,false,true);  
-
-	
     gotoState('CaptureByZombie',,true); 
-    ZombiePlayerPawn(Pawn).HurtByZombie(rotator(zombie.location-Pawn.location),zombie);
 }
 
 // do correspond special move ,just play push success animation...:)
@@ -1222,11 +1229,24 @@ function float CustomVSize2D(vector2d a, vector2d b)
 {
 	local vector aa,bb;
 	aa.x = a.x;
-	aa.y = a.y;
+ 	aa.y = a.y;
 
 	bb.x = b.x;
 	bb.y = b.y;
 	return vsize(aa-bb);
+}
+
+function Actor PickActorWithExtent(Vector2D PickLocation, Vector Extent)
+{
+	local Vector TouchOrigin, TouchDir;
+	local Vector HitLocation, HitNormal;
+	local Actor PickedActor;
+
+	PickLocation.X = PickLocation.X / ViewportSize.X;
+	PickLocation.Y = PickLocation.Y / ViewportSize.Y;
+	LocalPlayer(Player).Deproject(PickLocation, TouchOrigin, TouchDir);
+	PickedActor = Trace(HitLocation, HitNormal, TouchOrigin + (TouchDir * PickDistance), TouchOrigin, true,Extent);
+	return PickedActor;
 }
 function Actor PickActor(Vector2D PickLocation)
 {
@@ -1256,6 +1276,16 @@ function Actor PickActor(Vector2D PickLocation)
 	//Return the touched actor for good measure
 	//return NONE;
 }
+exec function DebugOff ()
+{
+	// body...;
+	GameDebug=false;
+}
+exec function DebugOn ()
+{
+	// body...;
+	GameDebug=true;
+}
 DefaultProperties
 {
 	CameraClass=class'ZBPlayerCamera'
@@ -1281,6 +1311,7 @@ DefaultProperties
 
 		ZoomScale=1.0
 		NormalStateName=PlayerWalking
+		GameDebug=true
 }
 
 

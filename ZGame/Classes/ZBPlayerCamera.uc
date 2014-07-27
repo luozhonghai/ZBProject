@@ -208,8 +208,9 @@ function UpdateViewTarget(out TViewTarget OutVT, float DeltaTime)
    }
 
    ApplyCameraModifiers(DeltaTime, OutVT.POV);
-
-	PreventCameraPenetration(PlayerOwner, OutVT.POV.Location, OutVT.POV.Rotation);
+  if(ZombieRushPC(PCOwner)!=none && PCOwner.IsInState('FallingHole')){}
+  else
+	 PreventCameraPenetration(PlayerOwner, OutVT.POV.Location, OutVT.POV.Rotation);
    // Set camera's location and rotation, to handle cases where we are not locked to view target
    SetRotation(OutVT.POV.Rotation);
    SetLocation(OutVT.POV.Location);

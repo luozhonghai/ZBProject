@@ -8,12 +8,16 @@ var bool bPushedEndTimer;
 
 var float PushedEndDelay;
 var const float PushedDelayTime;
+
+var float ForceBackDelay,ForceBackTimer;
+
 function SpecialMoveStarted(bool bForced, ESpecialMove PrevMove, optional INT InSpecialMoveFlags)
 {
 	Super.SpecialMoveStarted(bForced, PrevMove);
 
 	if (PawnOwner.health > 0)
 	{
+		ForceBackTimer = 0.0;
 		if(PawnOwner.ZombieType == EZT_Walk)
 		{
 			PawnOwner.PlayConfigAnim(AnimCfg_Pushed);
@@ -24,8 +28,6 @@ function SpecialMoveStarted(bool bForced, ESpecialMove PrevMove, optional INT In
 			PawnOwner.PlayConfigAnim(AnimCfg_Kicked);
 			LastAnimCfg = AnimCfg_Kicked;
 		}
-	//	PawnOwner.Velocity -= 1000 * Vector(PawnOwner.rotation); 
-		
 	}
 }
 
@@ -41,7 +43,6 @@ function AnimCfg_AnimEndNotify()
 		}
 		////////////////////
 		bPushedEndTimer = true;
-
 	//	PawnOwner.SetCollision(true,true);
 	}
 	
@@ -71,6 +72,13 @@ function SpecialMoveEnded(ESpecialMove PrevMove, ESpecialMove NextMove)
 
 event tickspecial(float deltaTime)
 {
+	// No damage for push down
+/*
+				if (PawnOwner == ZombieControllerBase(PawnOwner.Controller).globalPlayerController.InteractZombie)
+				{
+					PawnOwner.health -= 20;
+				}	
+				*/
 		if (bPushedEndTimer)
 		{
             PushedEndDelay+=deltaTime;
@@ -79,13 +87,7 @@ event tickspecial(float deltaTime)
 			{
 				bPushedEndTimer=false;
 				PushedEndDelay=0;
-// No damage for push down
-/*
-				if (PawnOwner == ZombieControllerBase(PawnOwner.Controller).globalPlayerController.InteractZombie)
-				{
-					PawnOwner.health -= 20;
-				}	
-				*/
+
 
 				if(PawnOwner.health > 0)
 				{
@@ -99,6 +101,18 @@ event tickspecial(float deltaTime)
 				
 			}
 		}
+		else if((LastAnimCfg == AnimCfg_Pushed || LastAnimCfg == AnimCfg_Kicked))
+		{
+			if(ForceBackTimer<ForceBackDelay)
+			   ForceBackTimer += deltaTime;
+			else
+			{
+				 ZBAIPawnBase(PawnOwner).RecoverCollision();
+				 if(LastAnimCfg == AnimCfg_Pushed)
+				 PawnOwner.Move(-350 * Vector(PawnOwner.rotation) *deltaTime);
+			}
+			   
+		}
 }
 DefaultProperties
 {
@@ -108,10 +122,11 @@ DefaultProperties
 	//zombie-pushaway
 	AnimCfg_Pushed=(AnimationNames=("zombie-pushaway"),PlayRate=1.0,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=false,blendouttime=-1.0)
     AnimCfg_Kicked=(AnimationNames=("zombie-tikai"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=false,blendouttime=-1.0)
-	AnimCfg_GetUp=(AnimationNames=("zombie-getup"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=false,blendouttime=0.15)
+	AnimCfg_GetUp=(AnimationNames=("zombie-getup"),PlayRate=1.000000,bCauseActorAnimEnd=True,bTriggerFakeRootMotion=True,FakeRootMotionMode=RMM_Accel,bLoop=false,blendintime=0.0,blendouttime=0.15)
     
 	 //  UseCustomRMM=True
 	//	RMMInAction=RMM_Translate
 
 		PushedDelayTime=2.5
+		ForceBackDelay=0.4
 }

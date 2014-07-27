@@ -28,7 +28,7 @@ defaultproperties
 	WeaponType=EWT_Axe
 	Begin Object Class=StaticMeshComponent Name=BulletPickUpComp
 		//model of Weapon
-		StaticMesh=StaticMesh'Pickups.Armor_ShieldBelt.Mesh.S_UN_Pickups_Shield_Belt'
+		StaticMesh=StaticMesh'zombie.Weapon.futou_01'
 		Scale3D=(X=1.5,Y=1.5,Z=1.5)
 		AlwaysLoadOnClient=TRUE
 		AlwaysLoadOnServer=TRUE

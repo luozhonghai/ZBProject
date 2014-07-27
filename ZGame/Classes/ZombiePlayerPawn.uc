@@ -1,6 +1,7 @@
-class ZombiePlayerPawn extends ZombiePawn;
+class ZombiePlayerPawn extends ZombiePawn
+	placeable;
 
-//Weapon blend anim
+//just for Weapon blend anim
 var byte WeaponType;
 //health
 
@@ -76,11 +77,18 @@ function int GetCustomHealth()
 {
 		return PlayerHealth;
 }
-
+function RestoreHealth(float amount)
+{
+	 	PlayerHealth+=amount;
+		if (PlayerHealth>=100)
+		{
+			PlayerHealth=100;
+		}
+}
 function SetInjuryState(bool bInjury)
 {
 	if(bInjury){
-     BlendListByHealth[0].SetActiveChild(1,0.1);
+   BlendListByHealth[0].SetActiveChild(1,0.1);
 	 BlendListByHealth[1].SetActiveChild(1,0.1);
 	}
 	else{
@@ -91,7 +99,7 @@ function SetInjuryState(bool bInjury)
 
 function bool IsInjuried()
 {
-	return GetCustomHealth()<50;
+	return GetCustomHealth()<=21;
 }
 
 
@@ -119,6 +127,7 @@ function int GetPower()
 {
 	return PlayerPower;
 }
+
 
 ///BUmp
 
@@ -374,6 +383,7 @@ simulated function OnAddZBWeapon(SeqAct_AddZBWeapon inAction)
 	//HeiDAIControllerTest(Controller).GotoState('MoveToPathNode');
 	AddZBInventory();
 }
+//call from Weapon.uc when start to hold weapon
 function SetWeaponType(int WeaponId)
 {
 	WeaponType = WeaponId;
@@ -548,15 +558,46 @@ event TakeDamage(int Damage, Controller InstigatedBy, vector HitLocation, vector
 
 function HurtByZombie(Rotator rot,ZBAIPawnBase zombie)
 {
+	local int rotDeltaYaw;
+	local Vector NewLocation;
+	rotDeltaYaw = abs(rot.Yaw - rotation.Yaw);
 	ZeroMovementVariables();
 	setphysics(PHYS_None);
-    ClientSetRotation(rot);
 	SetCollision(true,false);
    // cylindercomponent.setactorcollision(false,false,false);
-    EndSpecialMove();
-	DoSpecialMove(SM_Combat_GetHurt, true);
+  EndSpecialMove();
+  
+  if(zombie.ZombieType == EZT_Walk && rotDeltaYaw >= 90* DegToUnrRot)
+  {
+  	ClientSetRotation(rotator(-vector(rot)));
+		DoSpecialMove(SM_Combat_GetHurt, true, zombie,1); //hurt from back
+  }
+	else if(zombie.ZombieType == EZT_Walk)
+	{
+		ClientSetRotation(rot);
+	  DoSpecialMove(SM_Combat_GetHurt, true);
+	}
+	else if(zombie.ZombieType == EZT_Creep)
+	{
+		ClientSetRotation(rot);
+	  DoSpecialMove(SM_Combat_GetHurt, true,zombie,2);//bao tui
+	}
+	NewLocation = Location;
+	NewLocation.Z = zombie.Location.Z;
+	SetLocation(NewLocation);
 }
 
+function InitPosEatByZombie(Rotator rot,ZBAIPawnBase zombie)
+{
+	local Vector NewLocation;
+	ZeroMovementVariables();
+	setphysics(PHYS_None);
+	SetCollision(true,false);
+	ClientSetRotation(rot);
+	NewLocation = Location;
+	NewLocation.Z = zombie.Location.Z;
+	SetLocation(NewLocation);
+}
 ///////////////////////////////////
 function PushZombie()
 {
@@ -569,16 +610,16 @@ function PushForwardZombies(Actor IgnoredZombie)
 {
 		local ZombiePawn ZP;
 		local ZombiePawn TestZP;
-		local Vector ToTestWPNorm;
+		local Vector ToTestWPNorm,TestDir;
 		local float ToTestWPDist;
 		local float DotToTarget;
 		local float SearchRadius;
 
 		ZP = self;
-		SearchRadius = 75; //1.5 m
+		SearchRadius = 175; //1.5 m
 		//clear list
 	//	AdhesionForwardZombies.Remove(0,AdhesionForwardZombies.Length);
-
+    TestDir = -Vector(IgnoredZombie.Rotation);
 		foreach ZP.CollidingActors(Class'ZombiePawn', TestZP, SearchRadius)
 		{
 			if (ZP.IsValidMeleeTarget(TestZP) && TestZP != IgnoredZombie)
@@ -586,12 +627,13 @@ function PushForwardZombies(Actor IgnoredZombie)
 				ToTestWPNorm = TestZP.Location - ZP.Location;
 				ToTestWPDist = VSize(TestZP.Location - ZP.Location);
 				ToTestWPNorm /= ToTestWPDist;
-				DotToTarget = ToTestWPNorm Dot Vector(ZP.Rotation);
-				if (DotToTarget < 0)  //90du
+				DotToTarget = ToTestWPNorm Dot TestDir;
+				if (DotToTarget < -0.5)  //120du
 				{
 					continue;
 				}
-				TestZP.DoSpecialMove(SM_Zombie_Pushed, true);
+				//TestZP.DoSpecialMove(SM_Zombie_Pushed, true);
+				ZombieControllerTest(TestZP.Controller).PushedIndirect(); 
 			}
 		}
 
@@ -671,7 +713,7 @@ function bool PushCase()
 	lHitActor = Trace(lHitLocation, lHitNormal, lEnd, lStart, true, , , TRACEFLAG_Bullet);
   
 	//drawdebugline(lStart,lEnd,255,0,0,true);
-	if (InterpActor(lHitActor) != none && lHitActor.tag=='Case')
+	if (InterpActor(lHitActor) != none && (lHitActor.tag=='Case' || lHitActor.tag=='xiangzi_01'))
 	{
 		 SetRotation(rotator(-lHitNormal));
 		InteractCase = lHitActor;
@@ -688,27 +730,37 @@ function bool TraceCaseBlocked()
 {
 	local Vector lStart;
 	local Vector lEnd;
+	local vector Zoffset;
 	local bool res1_left,res2_right,res3_mid;
+
+	Zoffset = vect(0,0,10);
     if (InteractCase != none)
     {
 		lStart = InteractCase.Location;
+		lStart.z += 60;
 		lEnd = TransformVectorByRotation(Rotation, CaseTraceVector);
 		lEnd = lStart + lEnd;
-	//	drawdebugline(lStart,lEnd,255,0,0,true);
+`if(`isdefined(debug))
+		drawdebugline(lStart,lEnd,255,0,0,true);
+`endif	
 		// returns true if did not hit world geometry
-        res3_mid=InteractCase.FastTrace(lEnd,lStart);
+        res3_mid=InteractCase.FastTrace(lEnd,lStart,CaseTraceExtent);
 
-		lStart = InteractCase.Location + TransformVectorByRotation(Rotation, vect(0,-60,0));
+		lStart = InteractCase.Location + Zoffset + TransformVectorByRotation(Rotation, vect(0,-60,0));
 		lEnd = TransformVectorByRotation(Rotation, CaseTraceVector);
 		lEnd = lStart + lEnd;
-	//	drawdebugline(lStart,lEnd,255,0,0,true);
+`if(`isdefined(debug))
+		drawdebugline(lStart,lEnd,255,0,0,true);
+`endif	
 		// returns true if did not hit world geometry
 		res1_left=InteractCase.FastTrace(lEnd,lStart);
 
-		lStart = InteractCase.Location + TransformVectorByRotation(Rotation, vect(0,60,0));
+		lStart = InteractCase.Location + Zoffset + TransformVectorByRotation(Rotation, vect(0,60,0));
 		lEnd = TransformVectorByRotation(Rotation, CaseTraceVector);
 		lEnd = lStart + lEnd;
-	//	drawdebugline(lStart,lEnd,255,0,0,true);
+`if(`isdefined(debug))
+		drawdebugline(lStart,lEnd,255,0,0,true);
+`endif	
 		// returns true if did not hit world geometry
 		res2_right=InteractCase.FastTrace(lEnd,lStart);
 
@@ -762,7 +814,7 @@ DefaultProperties
 
 		//	blockactors=false
 			RBChannel=RBCC_Pawn
-			RBCollideWithChannels=(Default=TRUE,BlockingVolume=TRUE,Pawn=true,Untitled1=true)
+			RBCollideWithChannels=(Default=FALSE,BlockingVolume=TRUE,Pawn=FALSE,Untitled1=true)
 		End Object
 
 /*
@@ -805,7 +857,9 @@ DefaultProperties
 		AnimTreeTemplate=AnimTree'ZOMBIE_animation.AT_ZombieRole_01'
 		SkeletalMesh=SkeletalMesh'zombie.Character.actor_01'
     PhysicsAsset=PhysicsAsset'zombie.Character.zhujuemengpi_2_Physics'
-		LightingChannels=(Dynamic=FALSE,Cinematic_1=TRUE,bInitialized=TRUE)
+		LightingChannels=(Dynamic=TRUE,Cinematic_1=FALSE,bInitialized=TRUE)
+		bAcceptsDynamicDominantLightShadows=FALSE
+		bNoModSelfShadow=true
 	//	bHasPhysicsAssetInstance=true
 		//DepthPriorityGroup=SDPG_Foreground
 		End Object
@@ -880,9 +934,12 @@ DefaultProperties
 //	JumpZ=1060  //normal 420
 
     JumpZ=420
-	TraversalRays(0)=(Key="forward_origin",Start=(0,0,0),Length=(x=45,y=0,z=0))
-	CaseTraceVector=(X=75,Y=0,Z=0)
-	CaseTraceExtent=(X=0,Y=30,Z=20)
+	TraversalRays(0)=(Key="forward_origin",Start=(X=0,Y=0,Z=0),Length=(X=65,Y=0,Z=0))
+	//as collision radius
+	TraversalRays(1)=(Key="forward_left",Start=(X=0,Y=-46,Z=0),Length=(X=65,Y=0,Z=0))
+	TraversalRays(2)=(Key="forward_right",Start=(X=0,Y=46,Z=0),Length=(X=65,Y=0,Z=0))
+	CaseTraceVector=(X=85,Y=0,Z=0)
+	CaseTraceExtent=(X=10,Y=30,Z=20)
 	bDirectHitWall=true
 	
 	bCanBeFrictionedTo=false

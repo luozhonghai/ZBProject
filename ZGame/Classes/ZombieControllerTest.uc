@@ -30,7 +30,7 @@ var Vector tempDest;
 
 
 // record distance from player
-var float distanceToPlayer;
+var float distanceToPlayer,distanceToPlayer2D;
 
 
 var		transient int	AwareUpdateFrameCount;
@@ -51,14 +51,22 @@ var vector PushOrientDir;
 var vector FastMoveDest;
 
 var bool rotinterp;
+
+var bool bFastMeleePrepare;
+
+var Vector HoleKillLocation,HoleFallDir,HoleLocation;
+
+var bool bHitWall;
 function DrawDebug(HUD myHud)
 {
-	//local Vector DebugInfoLoc;
-	// DebugInfoLoc = myHud.Canvas.Project(Pawn.Location);
-	myHud.Canvas.SetPos(400, 200);
-//	myHud.Canvas.DrawText("Controller State"@GetStateName() @"PawnSpeed"@Pawn.GroundSpeed);
- //   myHud.Canvas.DrawText("Controller rOT"@rotation @"PawnRot"@Pawn.Rotation);
-    myHud.Canvas.DrawText("RootMotionMode"@Pawn.Mesh.RootMotionMode);
+	local Vector DebugInfoLoc,PawnTopLoc;
+	PawnTopLoc = Pawn.Location;
+	PawnTopLoc.Z += Pawn.GetCollisionHeight() + 20;
+	DebugInfoLoc = myHud.Canvas.Project(PawnTopLoc);
+	myHud.Canvas.SetPos(DebugInfoLoc.X, DebugInfoLoc.Y);
+//	myHud.Canvas.DrawText("State:"@GetStateName()) @"timer_melee"@timer_melee);
+    myHud.Canvas.DrawText("Controller rOT"@rotation @"PawnRot"@Pawn.Rotation);
+  //  myHud.Canvas.DrawText("RootMotionMode"@Pawn.Mesh.RootMotionMode);
 }
 function initializeGame()
 {
@@ -193,10 +201,10 @@ Begin:
 //	{
 		//`log("11");
 		WanderLocation = ActiveAIPawn.Location + (CalculateMovementDirection() * ActiveAIPawn.other_movementVectorLength * RandRange(0.7, 1));
-		if (VSize(WanderLocation - WanderCenter)<=WanderRange)
+		if (VSize(WanderLocation - WanderCenter)<=WanderRange && PointReachable(WanderLocation))
 		{
-			ActiveAIPawn.IdleNode.Rate = 0.7;
-			ActiveAIPawn.IdleNode.SetAnim('zombie03-move');
+		//	ActiveAIPawn.IdleNode.Rate = 0.7;
+		//	ActiveAIPawn.IdleNode.SetAnim('zombie03-move');
 			SetFocalPoint(WanderLocation);
 			//rotinterp = Pawn.SetDesiredRotation(Rotator(WanderLocation-ActiveAIPawn.Location),true,true,2);
 			//`log("rotinterp"@rotinterp);
@@ -213,8 +221,8 @@ Begin:
 		}
 	//	Sleep(RandRange(1.3, 2));
 //	}
-	ActiveAIPawn.IdleNode.Rate = 1.0;
-    ActiveAIPawn.IdleNode.SetAnim('zombie01-daiji');
+	//ActiveAIPawn.IdleNode.Rate = 1.0;
+  //ActiveAIPawn.IdleNode.SetAnim('zombie01-daiji');
 	Sleep(RandRange(1.3, 2));
 	LatentWhatToDoNext();
 }
@@ -227,14 +235,17 @@ state MoveToPlayerNoNav
 	{
 		//	ActiveAIPawn.GroundSpeed = ActiveAIPawn.speed_outsideMeleeRange;
 		ActiveAIPawn.AccelRate = ActiveAIPawn.speed_normalAccel;
-		SetDashSpeed(2);
-		MoveToPlayerExpireTime = 3.0f;
+		MoveToPlayerExpireTime = 2.0f;
+	}
+	event EndState(Name NextStateName)
+	{
+		bHitWall = false;
 	}
 	event bool NotifyHitWall(vector HitNormal, actor Wall)
 	{
 		 StopLatentExecution();
-		 WhatToDoNext();
-		return true;
+		 bHitWall = true;
+		 return true;
 	}
 	simulated function Tick(float DeltaTime)
 	{
@@ -255,16 +266,10 @@ state MoveToPlayerNoNav
 		    StopLatentExecution();
 		    WhatToDoNext();
 		}
-		else if (distanceToPlayer < ActiveAIPawn.meleePrepareRange)
+		else if (attackReady_melee && distanceToPlayer < ActiveAIPawn.meleePrepareRange)
 		{
 			GotoState('MeleeAttackPreparing');
 		}
-		else if(globalPlayerController.InteractZombie!=none//||ZombiePawn(globalPlayerController.Pawn).IsDoingASpecialMove())
-			&&distanceToPlayer < ActiveAIPawn.meleePrepareRange )
-		{
-			GotoState('MeleeAttackPreparing');
-		}
-
 	}
 	function Vector CalculateDirectMovementDirection()
 	{
@@ -277,22 +282,42 @@ Begin:
 	previousState = GetStateName();
 	if (attackReady_melee)
 	{
+		SetDashSpeed(2);
+		Focus = ActivePlayerPawn;
+		FinishRotation();
 	// MoveTo(ActivePlayerPawn.Location + (CalculateDirectMovementDirection() * ActiveAIPawn.direct_movementVectorLength * RandRange(0.5, 1.0)), ActivePlayerPawn);
 		MoveToward(ActivePlayerPawn,ActivePlayerPawn);
-		FinishRotation();
-	    LatentWhatToDoNext();
 	}
-	else
+	else 
 	{
+		/*
 		Pawn.ZeroMovementVariables();
 		Focus = ActivePlayerPawn;
 		Sleep(0.2);
-		LatentWhatToDoNext();
+		LatentWhatToDoNext();*/
+    //move slowly to player
+    SetDashSpeed(1);
+    Focus = ActivePlayerPawn;
+		FinishRotation();
+		MoveToward(ActivePlayerPawn,ActivePlayerPawn);
 	}
+
+	if(bHitWall)
+	{
+		 ActiveAIPawn.Zeromovementvariables();
+		 ActiveAIPawn.DoSpecialMove(SM_Zombie_MeleeAttackPre);
+		 Sleep(1.0);
+		 if(ActiveAIPawn.IsDoingSpecialMove(SM_Zombie_MeleeAttackPre))
+	       ActiveAIPawn.EndSpecialMove();
+		 bHitWall = false;
+	}
+	LatentWhatToDoNext();
+	/*
 Idle:
       StopLatentExecution();
       Sleep(RandRange(0.5,3));
-      LatentWhatToDoNext();
+      LatentWhatToDoNext();*/
+
 }
 //move towards Player  not move direct
 state MoveToPlayer
@@ -395,7 +420,7 @@ state MeleeAttackCold
 begin:
 	
     previousState = GetStateName();
-	Sleep(2.0);
+//	Sleep(2.0);
 
 	LatentWhatToDoNext();
 };
@@ -406,13 +431,21 @@ state MeleeAttackPreparing
 	{
 		stopLatentExecution();
 		Pawn.ZeroMovementVariables();
-		ActiveAIPawn.DoSpecialMove(SM_Zombie_MeleeAttackPre);
+	//	globalPlayerController.ClientMessage("MeleeAttackPreparing begin state");
 	}
-
+  event EndState(Name NextStateName)
+  {
+  	bHitWall = false;
+  }
     event bool NotifyBump(Actor Other, Vector HitNormal)
 	{
 		if(Other == ActivePlayerPawn)
-		  GotoState('MeleeAttackPlayer');
+		{
+			if(!ZombieRushGame(WorldInfo.Game).bInTransLevel && attackReady_melee)
+		  	GotoState('MeleeAttackPlayer');
+		   else
+		    Pawn.Velocity = -1000*HitNormal;
+		}
 		else if(Other.IsA('ZBAIPawnBase'))
 		{
 			stopLatentExecution();
@@ -424,12 +457,7 @@ state MeleeAttackPreparing
 	event bool NotifyHitWall(vector HitNormal, actor Wall)
 	{
 		StopLatentExecution();
-		WhatToDoNext();
-	}
-	event EndState(Name NextStateName)
-	{
-		if(ActiveAIPawn.IsDoingSpecialMove(SM_Zombie_MeleeAttackPre))
-	       ActiveAIPawn.EndSpecialMove();
+		bHitWall = true;
 	}
 
 	simulated function Tick(float DeltaTime)
@@ -439,27 +467,60 @@ state MeleeAttackPreparing
 	}
 begin:
 	previousState = GetStateName();
-   if(globalPlayerController.InteractZombie!=none)
+	bFastMeleePrepare = !bFastMeleePrepare;
+	ActiveAIPawn.EndSpecialMove();
+	if(bFastMeleePrepare)
+			ActiveAIPawn.DoSpecialMove(SM_Zombie_MeleeAttackPre);
+
+   if(globalPlayerController.InteractZombie!=none || !attackReady_melee)
    {
-   	  if(ActiveAIPawn.IsDoingSpecialMove(SM_Zombie_MeleeAttackPre))
-	       ActiveAIPawn.EndSpecialMove();
    	  Focus = ActivePlayerPawn;
    	  FinishRotation();
+   	  SetDashSpeed(1);
+   	  ActiveAIPawn.DoSpecialMove(SM_Zombie_MeleeAttackPre);
+   	  FastMoveDest = ActivePlayerPawn.Location;
+   	  MoveTo(FastMoveDest,ActivePlayerPawn,50);
+   	  while((globalPlayerController.InteractZombie!=none || !attackReady_melee) && distanceToPlayer2D <= 100)
+   	  {
+   	  	Sleep(1.0);
+   	  }
    }
    else
    {
-   	SetDashSpeed(3);
-   	/*
-   	Focus = ActivePlayerPawn;
-   	MoveToward(ActivePlayerPawn,ActivePlayerPawn,0.0,true);  */
-   	FastMoveDest = ActivePlayerPawn.Location+ 0.02*ActivePlayerPawn.Velocity;
+   	if(bFastMeleePrepare)
+   	{
+   			SetDashSpeed(3);
+   			FastMoveDest = ActivePlayerPawn.Location+ 0.02*ActivePlayerPawn.Velocity;
+`if(`isdefined(debug))
+   			globalPlayerController.ClientMessage("bFastMeleePrepare");
+`endif
+   	}
+   	else
+   	{
+`if(`isdefined(debug))
+   		globalPlayerController.ClientMessage("SlowMeleePrepare");
+`endif
+   		  SetDashSpeed(1);
+   			FastMoveDest = Pawn.Location+ (150 + 100 * frand())* Normal(ActivePlayerPawn.Location - Pawn.Location) ;
+   	}
    	FastMoveDest.Z = Pawn.Location.Z;
-  // 	Pawn.SetDesiredRotation(rotator(FastMoveDest - pawn.location));
-  // 	FinishRotation();
-   	MoveTo(FastMoveDest,ActivePlayerPawn,20);
+  	ClientSetRotation(rotator(FastMoveDest - Pawn.Location));
+    // focus self or focus playerpawn
+   	MoveTo(FastMoveDest,ActiveAIPawn,20);
+  // 	MoveTo(FastMoveDest,ActivePlayerPawn,20);
    }
+
+   if(bHitWall)
+	{
+		 ActiveAIPawn.Zeromovementvariables();
+		 ActiveAIPawn.DoSpecialMove(SM_Zombie_MeleeAttackPre);
+		 Sleep(1.0);
+		 bHitWall = false;
+	}
+	if(ActiveAIPawn.IsDoingSpecialMove(SM_Zombie_MeleeAttackPre))
+	       ActiveAIPawn.EndSpecialMove();
 	LatentWhatToDoNext();
-	
+
 };
 //executes a melee attack
 state MeleeAttackPlayer
@@ -474,7 +535,7 @@ state MeleeAttackPlayer
 	{
 		global.tick(DeltaTime);
 
-		performPhysics(DeltaTime);
+	//	performPhysics(DeltaTime);
 	}
 
 	function Vector CalculateMovementDirection()
@@ -504,6 +565,7 @@ begin:
     Focus = none;
 	 // ActiveAIPawn.SaveLastRot();
 	  PushOrientDir = pawn.location - ActivePlayerPawn.location;
+	  PushOrientDir.z = 0;
 	 // ClientSetRotation(rotator(-PushOrientDir));
 		ActiveAIPawn.PlayerHurtByMe(ActivePlayerPawn.location,rotator(-PushOrientDir));
 		//ClientSetRotation(rotator(ActivePlayerPawn.location - pawn.location));
@@ -518,6 +580,8 @@ begin:
 	}
 }
 
+//hurt by weapon touch
+//call form TakeDamage() in ZBAIPawnBase
 state Hurt
 {
 	event BeginState(Name PreviousStateName)
@@ -552,6 +616,21 @@ NoFocus:
 	//goto 'begin';
 	//PopState();
 }
+
+state PushUntouch
+{
+	event BeginState(Name PreviousStateName)
+	{
+		StopLatentExecution();
+		Pawn.Zeromovementvariables();
+	//	setphysics(PHYS_None);
+	}
+begin:
+   previousState = GetStateName();
+   Focus = none;
+   ActiveAIPawn.DoSpecialMove(SM_Zombie_Pushed, true);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////
 //////////////////////Functions that run in the background/////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -569,11 +648,10 @@ function updateTimers(float DeltaTime)
 		}
 	}
 }
-/*
-simulated function Tick(float DeltaTime)
+function PushedIndirect()
 {
-	updateTimers(DeltaTime);
-}*/
+	GotoState('PushUntouch');
+}
 
 function SetDashSpeed(int level)
 {
@@ -593,13 +671,15 @@ function SetDashSpeed(int level)
 }
 function SetFollowSpeedRange()
 {
-	Pawn.GroundSpeed = DefaultIdleSpeed + FRand() * (DefaultFollowSpeed - DefaultIdleSpeed);
+	if(attackReady_melee)
+		Pawn.GroundSpeed = DefaultIdleSpeed + FRand() * (DefaultFollowSpeed - DefaultIdleSpeed);
 }
 simulated function Tick(float DeltaTime)
 {
 	super.Tick(DeltaTime);
 	updateTimers(DeltaTime);
 	distanceToPlayer = VSize(globalPlayerController.Pawn.Location - Pawn.Location);
+	distanceToPlayer2D = VSize2D(globalPlayerController.Pawn.Location - Pawn.Location);
 /*
 	AwareUpdateFrameCount++;
 	if(AwareUpdateFrameCount >= AwareUpdateInterval)
@@ -701,6 +781,56 @@ function performPhysics(FLOAT DeltaTime)
 
 	Pawn.Velocity += TotalForce * DeltaTime;
 }
+
+function FallIntoHole(Vector HoleLoc)
+{
+	HoleLocation = HoleLoc;
+	HoleLocation.z = Pawn.Location.Z + 10;
+	HoleKillLocation = HoleLoc;
+	HoleKillLocation.z -= 2 * Pawn.GetCollisionHeight();
+	HoleFallDir = Normal(HoleKillLocation - Pawn.Location);
+	StopLatentExecution();
+	Focus=none;
+	GotoState('FallingHole');
+}
+
+state FallingHole
+{
+	event BeginState(Name PreviousStateName)
+	{
+		ZombiePawn(Pawn).EndSpecialMove();
+    Pawn.SetCollision(false,false);
+    Pawn.bCollideWorld = false;
+		Pawn.SetPhysics(PHYS_Custom);
+
+	}
+	function InternalOnInputTouch(int Handle, ETouchType Type, Vector2D TouchLocation, float DeviceTimestamp, int TouchpadIndex)
+	{
+	}
+	function DoSwipeMove(Vector2D startLocation, Vector2D endLocation)
+	{
+		
+	}
+	function Tick( float DeltaTime )
+	{
+		if (Pawn.Location.Z <= HoleKillLocation.Z)
+		{
+			GotoState('ZombieDying');
+		}
+		else if (abs(Pawn.Location.x - HoleLocation.X) >= 10)
+		{
+			HoleFallDir = Normal(HoleLocation - Pawn.Location);
+			Pawn.Velocity = 0.8* DefaultFollowSpeed * HoleFallDir;
+			Pawn.Move(  Pawn.Velocity * DeltaTime);
+		}
+		else
+		{
+			HoleFallDir = Normal(HoleKillLocation - Pawn.Location);
+			Pawn.Velocity =  DefaultFollowSpeed * HoleFallDir;
+			Pawn.Move(  Pawn.Velocity * DeltaTime);
+		}       
+	}
+}
 DefaultProperties
 {
 		WanderRange=800;  //1000
@@ -714,7 +844,7 @@ DefaultProperties
 		AwareUpdateInterval=30
 
 		moveToPlayerState="MoveToPlayerNoNav"
-		DefaultIdleSpeed=80   //50
+		DefaultIdleSpeed=90   //50
 		DefaultFollowSpeed=250   //50
-		DefaultChaseSpeed=500 //400
+		DefaultChaseSpeed=450 //400
 }

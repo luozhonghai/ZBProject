@@ -13,12 +13,14 @@ const  VELOCITY_CONVER_FACTOR = 52.5;
 
 var(Input) float SwipeTraceDistance;
 var(Input) float MinMoveDistance,MinTapDistance;
+var(Input) bool bReceiveInput; // set when push case , settimer('0.02',...)
 
 var Vector OrientVect[4];
 var int OrientIndex,OldOrientIndex;
 var Vector OldVelocity;
 
 var float TurnIntervalTime;
+var bool bTwoFingerTouch;
 
 var float RollDegThreshold, PitchDegThreshold;
 var float 	StrafeCoeff;
@@ -34,7 +36,8 @@ var bool bLongPressTimer;
 
 //knock by Blockade
 var Vector KonckVelocity;
-var float KnockMag;
+var float KnockMag,KnockTime;
+var bool bExitKnock;
 // move to certain location
 var Vector TraversalTargetLocation;
 
@@ -45,8 +48,12 @@ var int LatentTurnCommand;
 //effect caused by item like dingci
 var ZBEffectBuffer EntityBuffer;
 
+var Vector HoleKillLocation,HoleFallDir,HoleLocation;
 
+var bool bReachHole, bReachHoleCenter;
 
+//load level
+var string NextLevelName;
 function SetupZones()
 {
 	super.SetupZones();
@@ -153,18 +160,24 @@ state CaptureByZombie
 	exec function StartFire( optional byte FireModeNum ){}
 	event BeginState(Name PreviousStateName)
 	{
+		local Vector OrientDir;
 		TouchEvents.remove(0,TouchEvents.length-1);
 		Pawn.ZeroMovementVariables();
 		bSwipeCapturePlayer = true;
 		SwipeCounter = 0;
 
-		// ZombiePlayerPawn(Pawn).CustomTakeDamage(10);
-
+		ZombiePlayerPawn(Pawn).CustomTakeDamage(10);
+		OrientDir = InteractZombie.location-Pawn.location;
+    OrientDir.z = 0;
 		if (ZombiePlayerPawn(Pawn).GetCustomHealth()<=0)
 		{
+			ZombiePlayerPawn(Pawn).InitPosEatByZombie(rotator(OrientDir),InteractZombie);
 			CaptureActTimeEnd();
 		}
-
+    else
+    {
+      ZombiePlayerPawn(Pawn).HurtByZombie(rotator(OrientDir),InteractZombie);
+    }
 
 		ZombieHud(myhud).SetActionFunction(TapActionButton);
 
@@ -277,13 +290,23 @@ state PlayerWalking
 {
 	event BeginState(Name PreviousStateName)
 	{
-		//计算四个方向向量
+		//录脝脣茫脣脛赂枚路陆脧貌脧貌脕驴
 		ReCalcOrientVector();
-
+    Pawn.SetPhysics(PHYS_Walking);
 	//	PawnCSphere=Spawn(class'PawnCollisionSphere',self);
 	//	PawnCSphere.SetBase(Pawn);
 		//PawnCSphere.SetHardAttach(true);
-		gotoState('PlayerRush');
+		
+	}
+	function PlayerMove( float DeltaTime )
+	{
+	}
+	function InternalOnInputTouch(int Handle, ETouchType Type, Vector2D TouchLocation, float DeviceTimestamp, int TouchpadIndex)
+	{
+		if (Type == Touch_Ended)
+		{
+			gotoState('PlayerRush');
+		}
 	}
 }
 
@@ -292,10 +315,13 @@ state PlayerRush extends PlayerWalking
 {
 	event BeginState(Name PreviousStateName)
 	{
-         RushDir =  OrientVect[OrientIndex];
-         if(PreviousStateName != 'PlayerTurn')
-		 	//Pawn.SetMovementPhysics();
-		 	Pawn.SetPhysics(PHYS_Walking);
+      RushDir =  OrientVect[OrientIndex];
+      if(PreviousStateName != 'PlayerTurn'&&PreviousStateName != 'PlayerWalking')
+      {
+      	if(TouchEvents.length > 0)
+			 		TouchEvents.Remove(0,TouchEvents.length);
+			 	Pawn.SetPhysics(PHYS_Walking);
+      }
 		 else
 		 {
 		 	if(LatentTurnCommand != -1)
@@ -305,20 +331,30 @@ state PlayerRush extends PlayerWalking
 		 	  TurnMove(OldOrientIndex,OrientIndex);
 		 	}
 		 }
+
+		
 	}
    event EndState(Name NextStateName)
     {
 		LongPressTime = 0.0f;
 		bLongPressTimer = false;
 		SetDashSpeed(false);
+
+		if(TouchEvents.length > 0)
+			TouchEvents.Remove(0,TouchEvents.length);
 	}
 	function PlayerMove( float DeltaTime )
 	{
 		local float OldVelocityZ;
-		OnRushMobileMotion(PlayerInput.aTilt);
+		//OnRushMobileMotion(PlayerInput.aTilt);
 		
 		 WorldInfo.WorldGravityZ =   ZombieRushGame(WorldInfo.Game).CustomGravityZ;
-		 
+		 		 //push case condition
+		 if(ZombieRushPawn(Pawn)!=none && ZombieRushPawn(Pawn).bCaptureCase)
+		 {
+		 		return;
+		 }
+
 		 if(ZombieRushPawn(Pawn)!=none && ZombieRushPawn(Pawn).bHitWall)
 		 {
 		 //	stop when stay on front of blocade/wall, and unable jump forward
@@ -334,6 +370,7 @@ state PlayerRush extends PlayerWalking
 		    return;
 		 }
 		 
+
 		 // consume power when run
 		if(VSize(Pawn.Velocity) > 10)
            ZombieRushPawn(Pawn).ConsumePower(1.67 * DeltaTime);
@@ -370,7 +407,8 @@ state PlayerRush extends PlayerWalking
 		local STouchEvent TouchEvent;
 		local int Index;
 
-		if(ZombieRushPawn(Pawn).IsDoingASpecialMove())
+		if(ZombieRushPawn(Pawn).IsDoingASpecialMove() && !ZombieRushPawn(Pawn).IsDoingSpecialMove(SM_PushCase)
+			|| !bReceiveInput)
 		 //	ZombieRushPawn(Pawn).bHitWall = false;
 		     return;
 		if( ZombieHud(myHUD).HudCheckTouchEvent(Handle,Type,TouchLocation,ViewportSize))
@@ -387,9 +425,21 @@ state PlayerRush extends PlayerWalking
 			TouchEvent.Handle = Handle;
 			TouchEvent.ScreenLocation = TouchLocation;
 			TouchEvents.AddItem(TouchEvent);
+      
+    //  two finger touch should stop
+			if(TouchEvents.length == 2)
+			{
+				//RushDir = vect(0,0,0);
+				// stop and recover power ,the same as hit wall effect
+				ZombieRushPawn(Pawn).bHitWall = true;
+
+				bTwoFingerTouch = true;
+				Pawn.SetRotation(Rotator(RushDir));
+	 	 	  SetRotation(Pawn.rotation);
+			}
 		}
 
-//Touch_Stationary no use right now
+		//Touch_Stationary no use right now
 		else if(Type == Touch_Stationary){
 			Index = TouchEvents.Find('Handle', Handle);
 			if (Index == INDEX_NONE)
@@ -414,21 +464,42 @@ state PlayerRush extends PlayerWalking
 			if (Index == INDEX_NONE)
 			{
 				return;
-			}			
-			if(CustomVSize2D(TouchEvents[Index].ScreenLocation,TouchLocation)>MinMoveDistance)
-			   DoSwipeMove(TouchEvents[Index].ScreenLocation,TouchLocation);         
+			}
+			
+  //    if(ZombieRushPawn(Pawn).IsDoingSpecialMove(SM_PushCase))
+  //     ZombieRushPawn(Pawn).StopPushCase();
+
+			 if(bTwoFingerTouch)
+			 {
+         if(TouchEvents.length == 1)
+         	bTwoFingerTouch = false;
+         TouchEvents.Remove(Index, 1);
+			 }			
+			 else
+			 {
+			 	  if(CustomVSize2D(TouchEvents[Index].ScreenLocation,TouchLocation)>MinMoveDistance)
+			 	  {
+			 	  	DoSwipeMove(TouchEvents[Index].ScreenLocation,TouchLocation);   
+			 	  	if(TouchEvents.length > 0)
+			 	  		TouchEvents.Remove(0,TouchEvents.length);
+			 	  }
+			   	        
 			//	ClientMessage("ZombiePC.TouchEvents"@TouchLocation.x@TouchLocation.y);
 			// Remove the touch event from the TouchEvents array
-           else if(LongPressTime<0.5f
+          else if(LongPressTime<0.5f
            	&&CustomVSize2D(TouchEvents[Index].ScreenLocation,TouchLocation)<MinTapDistance
            	&&!ZombieRushPawn(Pawn).IsDoingASpecialMove())
-           {
-               	  DoTouchMove(TouchLocation);
-            } 
-            TouchEvents.Remove(Index, 1);
+          {
+              DoTouchMove(TouchLocation);
+              if(TouchEvents.length > 0)
+			 	  		TouchEvents.Remove(0,TouchEvents.length);
+          } 
+			 }
+
+      
 			LongPressTime = 0.0f;
 			bLongPressTimer = false;
-			SetDashSpeed(false);
+		//	SetDashSpeed(false);
 		}
 	}
 
@@ -455,6 +526,8 @@ state KnockByBlockade
 	event BeginState(Name PrevStateName)
     {
     	SetPhysics(PHYS_Custom);
+    	bExitKnock=false;
+    	KnockTime=0.0;
     }
 	 event EndState(Name NextStateName)
     {  
@@ -463,11 +536,23 @@ state KnockByBlockade
     }	
     event PlayerTick(float deltaTime)
     {
-    	Pawn.velocity = KonckVelocity;
+    	
+    	if(KnockTime < 0.2)
+    	{
+    	  KnockTime += deltaTime;
+    	  Pawn.velocity = KonckVelocity;
+    	}	 
+    	else
+    	{
+    	  bExitKnock = true;
+    	}
     }
+    function InternalOnInputTouch(int Handle, ETouchType Type, Vector2D TouchLocation, float DeviceTimestamp, int TouchpadIndex)
+		{
+		}
 Begin:
-
-     Sleep(0.1);
+     while(!bExitKnock)
+     	Sleep(0.0);//0.1
      if(!FastTrace(100*Normal(Pawn.velocity) + Pawn.location, Pawn.Location))
      {
      	Pawn.velocity = vect(0,0,0);
@@ -503,6 +588,11 @@ function PawnRanOffBlockade(vector HitNormal, optional bool bInverse)
 	 //+Vsize(Velocity) * 25 * Normal(HitNormal);
 }
 
+function PawnRanStrafe(float Mag, Vector Dir)
+{
+	 KonckVelocity = Mag * Normal(Dir);
+	GotoState('KnockByBlockade');
+}
 function DoSwipeMove(Vector2D startLocation, Vector2D endLocation)
 {
      local float deltaX,deltaY,absDeltaY,absDeltaX;
@@ -518,25 +608,21 @@ function DoSwipeMove(Vector2D startLocation, Vector2D endLocation)
 		 absDeltaY = abs(endLocation.Y - startLocation.Y);
 
 		 OldOrientIndex = OrientIndex;
-         if (deltaX > 0.1 && absDeltaX > absDeltaY ) //swipe right
-         {
-		     OrientIndex = 0;
-		     ZombieRushPawn(Pawn).bHitWall = false;
+     if (deltaX > 0.1 && absDeltaX > absDeltaY ) //swipe right
+     {
+		   OrientIndex = 0;    
 		 }
 		 else if(deltaX < -0.1 && absDeltaX > absDeltaY) //swipe left
 		 {
-			OrientIndex = 2;
-			ZombieRushPawn(Pawn).bHitWall = false;
-		  }
+			 OrientIndex = 2;
+		 }
 		 else if(deltaY < -0.1)  //swipe up
 		 {
-		 	OrientIndex = 3;
-			ZombieRushPawn(Pawn).bHitWall = false;
+		 	 OrientIndex = 3;
 		 }
 		  else if(deltaY > 0.1)  //swipe down
 		 {
-		 	OrientIndex = 1;
-			ZombieRushPawn(Pawn).bHitWall = false;
+		 	 OrientIndex = 1;
 		 }
 
 		OldVelocity = Pawn.Velocity;	
@@ -544,8 +630,12 @@ function DoSwipeMove(Vector2D startLocation, Vector2D endLocation)
 		 Pawn.Velocity = vect(0,0,0);
 		 if (/*Vsize(OldVelocity) > 500 &&*/ GetStateName()=='PlayerRush')
 		 {
-		    TurnMove(OldOrientIndex, OrientIndex);
-		 }		
+		 	// if hitwall just turn instantly,including shoot gun
+		 	// but if doing pushcase special move turn around and continue rush
+		 	 if(!ZombieRushPawn(Pawn).bHitWall || ZombieRushPawn(Pawn).IsDoingSpecialMove(SM_PushCase))
+		     TurnMove(OldOrientIndex, OrientIndex);
+		 }
+		 ZombieRushPawn(Pawn).bHitWall = false;		
 		 return;
 }
 
@@ -570,13 +660,19 @@ State PlayerTurn
 		 LatentTurnCommand = -1;
 
 		 InitRot = Pawn.Rotation;
+
+		if(TouchEvents.length > 0)
+			TouchEvents.Remove(0,TouchEvents.length);
 	}
 	 event EndState(Name NextStateName)
     {
 		StopLatentExecution();
 
-         Pawn.SetPhysics(PHYS_Walking);
-	     Pawn.SetRotation(Rotator(RushDir));
+     Pawn.SetPhysics(PHYS_Walking);
+	   Pawn.SetRotation(Rotator(RushDir));
+
+	   if(TouchEvents.length > 0 && NextStateName != 'PlayerRush')
+			TouchEvents.Remove(0,TouchEvents.length);
 	}
 	//can`t fire in PlayerTurn State
 	 exec function StartFire( optional byte FireModeNum )
@@ -597,6 +693,21 @@ State PlayerTurn
 			TouchEvent.Handle = Handle;
 			TouchEvent.ScreenLocation = TouchLocation;
 			TouchEvents.AddItem(TouchEvent);
+
+			//  two finger touch should stop
+			if(TouchEvents.length == 2)
+			{
+				//RushDir = vect(0,0,0);
+				// stop and recover power ,the same as hit wall effect
+				ZombieRushPawn(Pawn).bHitWall = true;
+				bTwoFingerTouch = true;
+				Pawn.SetRotation(Rotator(RushDir));
+	 	 	  SetRotation(Pawn.rotation);
+	 	 	  ZombieRushPawn(Pawn).EndSpecialMove();
+	 	 	  LatentTurnCommand=-1;
+	 	 	  GotoState('PlayerRush');
+			}
+
 		}
 		// Handle existing touch events
 		else if (Type == Touch_Ended || Type == Touch_Cancelled)
@@ -605,11 +716,42 @@ State PlayerTurn
 			if (Index == INDEX_NONE)
 			{
 				return;
-			}			
+			}
+
+			if(bTwoFingerTouch)
+			 {
+         if(TouchEvents.length == 1)
+         	bTwoFingerTouch = false;
+         TouchEvents.Remove(Index, 1);
+
+         return;
+			 }	
+
 			if(CustomVSize2D(TouchEvents[Index].ScreenLocation,TouchLocation)>MinMoveDistance)
+			{
 			   LatentTurnCommand = GetNextTurnCommand(TouchEvents[Index].ScreenLocation,TouchLocation);         
-            TouchEvents.Remove(Index, 1);
+         TouchEvents.Remove(Index, 1);
+      }
+			else if(LongPressTime<0.5f
+         &&CustomVSize2D(TouchEvents[Index].ScreenLocation,TouchLocation)<MinTapDistance)
+          {
+          	ZombieRushPawn(Pawn).EndSpecialMove();
+            CustomJump();
+          //  GotoState('PlayerRush');
+          } 
+      else
+      {
+      	if(CustomVSize2D(TouchEvents[Index].ScreenLocation,TouchLocation)>MinMoveDistance)
+			 	  {
+			 	  	ZombieRushPawn(Pawn).EndSpecialMove();
+			 	  	DoSwipeMove(TouchEvents[Index].ScreenLocation,TouchLocation);   
+			 	  }
+      }
+      TouchEvents.Remove(Index, 1);
+			LongPressTime = 0.0f;
+			bLongPressTimer = false;	
 		}
+
 	}
 	function int GetNextTurnCommand(Vector2D startLocation, Vector2D endLocation)
 {
@@ -619,11 +761,11 @@ State PlayerTurn
 		 absDeltaX = abs(deltaX);
 		 absDeltaY = abs(endLocation.Y - startLocation.Y);
 
-         if (deltaX > 0.1 && absDeltaX > absDeltaY ) //swipe right
-         {
+      if (deltaX > 0.1 && absDeltaX > absDeltaY ) //swipe right
+      {
 		     ZombieRushPawn(Pawn).bHitWall = false;
 		     return 0;
-		 }
+		  }
 		 else if(deltaX < -0.1 && absDeltaX > absDeltaY) //swipe left
 		 {
 			ZombieRushPawn(Pawn).bHitWall = false;
@@ -641,22 +783,41 @@ State PlayerTurn
 		 }
 		 return -1;
 }
+
 	function PlayerMove( float DeltaTime )
 	{
+		SetDashSpeed(true);	
+		if(bLongPressTimer)
+				LongPressTime+= DeltaTime;
+		if(LongPressTime >= 0.5f)
+		{
+        bLongPressTimer = false;
+	  }         
 		if(TurnIntervalTime > 0)
 		{
 		    TurnIntervalTime-=DeltaTime;
-		    Pawn.Velocity = FMax(Vsize(Pawn.Velocity)-1400 * DeltaTime, 50 ) * OrientVect[OldOrientIndex];
-		    if(TurnIntervalTime <= 0)
+
+		  //  Pawn.Acceleration = 0.1*Pawn.AccelRate * OrientVect[OldOrientIndex];
+		   
+		 //   Pawn.Velocity = FMax(Vsize(Pawn.Velocity)-2400 * DeltaTime, 10 ) * OrientVect[OldOrientIndex];
+		 //   if(TurnIntervalTime <= 0)
 		      Pawn.Velocity = vect (0,0,0);
 		}
 		else
 		{
-			Pawn.Velocity = FMin(Vsize(Pawn.Velocity)+1400 * DeltaTime, ForwardVel*1.0) * OrientVect[OrientIndex];
+			Pawn.Velocity = FMin(Vsize(Pawn.Velocity)+600 * DeltaTime, ForwardVel*0.75) * OrientVect[OrientIndex];
+		//	 Pawn.Acceleration = 0.1*Pawn.AccelRate * OrientVect[OrientIndex];
 		}
 		Pawn.Move( Pawn.Velocity * DeltaTime);
+		if(ZombieRushPawn(Pawn).PhysicsTraceFowardBlocked(OrientVect[OrientIndex]))
+		  ZombieRushPawn(Pawn).EndSpecialMove();
+		  /*
+		if(ZombieRushPawn(Pawn).PhysicsTraceFowardHole())
+		  GotoState('FallingHole');*/
+		  
 		//Pawn.SetRotation(InitRot + QuatToRotator(Pawn.Mesh.RootMotionDelta.Rotation));
 	}
+
 	begin:
 	TurnLeft:
      ZombieRushPawn(Pawn).DoSpecialMove(SM_RunTurn,false,none,1);
@@ -678,12 +839,12 @@ function  DoTouchMove(Vector2d TouchLocation)
     local Actor HitActor,PickedActor;
 
 	// first, if pick a zombie, fire to it when hold gun
-    PickedActor = PickActor(TouchLocation);
+    PickedActor = PickActorWithExtent(TouchLocation,vect(40,40,40));
 	if( PickedActor!=none&&PickedActor.IsA('ZBAIPawnBase')
 		&&ZombieRushPawn(Pawn).WeaponList[2].isInState('Active'))
 	{
-		AvailableShootZombie = ZBAIPawnBase(PickedActor);
-		super.StartFire(0); 
+		AvailableShootZombie = ZBAIPawnBase(PickedActor);//used in ZSM_GunFire
+		StartFire(0); 
 		return;       
 	}
 	// when run forward( velocity != 0), check if player can climb a climable blockade 
@@ -742,6 +903,121 @@ state MoveToCertainPoint
 	function InternalOnInputTouch(int Handle, ETouchType Type, Vector2D TouchLocation, float DeviceTimestamp, int TouchpadIndex)
 	{
 	}
+}
+
+state MoveToPushCasePoint
+{
+	event PushedState()
+	{
+		 Pawn.SetPhysics(PHYS_Custom);
+		 Pawn.SetCollision(false,false);
+	}
+   event PoppedState()
+  {
+  	Pawn.SetCollision(true,true);
+  	Pawn.SetPhysics(PHYS_Walking);
+  	Pawn.ZeroMovementVariables();
+  	ZombieRushPawn(Pawn).DoPushCase();
+	}
+	function PlayerMove( float DeltaTime )
+	{
+		if (VSize(ZombieRushPawn(Pawn).PushCasePoint -Pawn.Location) <= 5)
+		{
+			PopState();
+		}
+		else
+		{
+			Pawn.Velocity = 0.3 * ForwardVel * ZombieRushPawn(Pawn).MoveToCaseDir;
+			Pawn.Move( Pawn.Velocity * DeltaTime);
+		}		    
+	}
+	function InternalOnInputTouch(int Handle, ETouchType Type, Vector2D TouchLocation, float DeviceTimestamp, int TouchpadIndex)
+	{
+	}
+	function DoSwipeMove(Vector2D startLocation, Vector2D endLocation)
+	{
+		
+	}
+}
+state FallingHole
+{
+	event BeginState(Name PreviousStateName)
+	{
+		ZombiePawn(Pawn).EndSpecialMove();
+	//	Pawn.Acceleration = vect(0,0,0);
+  //  Pawn.SetCollision(false,false);
+  //  Pawn.bCollideWorld = false;
+    Pawn.SetCollisionType(COLLIDE_NoCollision);
+		Pawn.SetPhysics(PHYS_None);
+
+	}
+	event EndState(Name NextStateName)
+	{
+		ClientMessage(NextStateName);
+	}
+	function InternalOnInputTouch(int Handle, ETouchType Type, Vector2D TouchLocation, float DeviceTimestamp, int TouchpadIndex)
+	{
+	}
+	function DoSwipeMove(Vector2D startLocation, Vector2D endLocation)
+	{
+		
+	}
+	
+	function PlayerMove( float DeltaTime )
+	{
+		if(bReachHole)
+			return;
+		if (Pawn.Location.Z <= HoleKillLocation.Z)
+		{
+			ZombieRushGame(WorldInfo.Game).PawnDied();
+			Pawn.Velocity = vect(0,0,0);
+			bReachHole = true;
+		}
+		else if (abs(Pawn.Location.x - HoleLocation.x) >= 6
+			||abs(Pawn.Location.y - HoleLocation.y) >= 6)
+		{
+			HoleFallDir = HoleLocation - Pawn.Location;
+			Pawn.Velocity = 0.8 * ForwardVel * Normal(HoleFallDir) ;//0.8
+			Pawn.Move(  Pawn.Velocity * DeltaTime);
+		}
+		else
+		{
+			HoleFallDir = Normal(HoleKillLocation - Pawn.Location);
+			Pawn.Velocity =  0.8*ForwardVel * HoleFallDir;
+			Pawn.Move(  Pawn.Velocity * DeltaTime);
+		}   
+	}
+begin:
+}
+
+state TransLevel
+{
+	function InternalOnInputTouch(int Handle, ETouchType Type, Vector2D TouchLocation, float DeviceTimestamp, int TouchpadIndex)
+	{
+	}
+	function DoSwipeMove(Vector2D startLocation, Vector2D endLocation)
+	{
+		
+	}
+	function PlayerMove( float DeltaTime )
+	{
+	}
+begin:
+	ZombieRushGame(WorldInfo.Game).bInTransLevel = true;
+  ZombieRushPawn(Pawn).EndSpecialMove();
+  ZombieRushPawn(Pawn).ZeroMovementVariables();
+	ClientSetCameraFade(true,MakeColor(0,0,0,255),vect2d(0,1),2.0);
+}
+function TransNextLevel(string LevelName)
+{
+	ZombieRushGame(WorldInfo.Game).SavePrevLevelInfo();
+	NextLevelName = LevelName;
+	SetTimer(2.0, false, 'TransLevelImpl');
+	GotoState('TransLevel');
+}
+function TransLevelImpl()
+{
+	ConsoleCommand("open "$NextLevelName);
 }
 function ClimbBlockade()
 {
@@ -802,11 +1078,30 @@ function SetDashSpeed(bool bDash,optional bool bInjuryPawn)
 		if(ZombieRushPawn(Pawn)!=none)
 		  ZombieRushPawn(Pawn).SetWalkingStatus(true);
 	 }
+	
+	if(ZombieRushPawn(Pawn).IsInjuried())
+	{
+		ZombieRushPawn(Pawn).SetInjuryState(true);
+		ForwardVel = WalkSpeed * VELOCITY_CONVER_FACTOR;    //3m/s
+		if(ZombieRushPawn(Pawn)!=none)
+		  ZombieRushPawn(Pawn).SetWalkingStatus(true);
+	}
+	else
+		ZombieRushPawn(Pawn).SetInjuryState(false);
+
 	ForwardVel *= EntityBuffer.VelocityScale;
 	Pawn.GroundSpeed = ForwardVel;
 }
 
-
+function FallIntoHole(Vector HoleLoc)
+{
+	HoleLocation = HoleLoc;
+	HoleLocation.z = Pawn.Location.Z + 10;
+	HoleKillLocation = HoleLoc;
+	HoleKillLocation.z -= 2 * Pawn.GetCollisionHeight();
+	HoleFallDir = Normal(HoleKillLocation - Pawn.Location);
+	GotoState('FallingHole');
+}
 event NotifyDirectorControl(bool bNowControlling, SeqAct_Interp CurrentMatinee)
 {
 	super.NotifyDirectorControl(bNowControlling, CurrentMatinee);
@@ -837,6 +1132,7 @@ event bool NotifyHitWall(vector HitNormal, actor Wall){
 
 event bool NotifyBump(Actor Other, Vector HitNormal){
   `log("NotifyBump");
+  return true;
 }
 
 exec function coeff(float a=60, float b=600){
@@ -865,6 +1161,10 @@ exec function Power (float value)
 {
 	ZombieRushPawn(Pawn).PlayerPower = value;
 }
+exec function Health (float value)
+{
+	ZombieRushPawn(Pawn).PlayerHealth = value;
+}
 exec function ZBF ()
 {
 	// body...;
@@ -874,6 +1174,13 @@ exec function ZBF ()
 		P.DoSpecialMove(SM_Zombie_Pushed,TRUE);
 	}
 }
+exec function CCOn()
+{
+	// body...;
+	Pawn.collisioncomponent.SetRBChannel(RBCC_DeadPawn);
+	Pawn.collisioncomponent.SetRBCollidesWithChannel(RBCC_Default,FALSE);
+	Pawn.collisioncomponent.SetRBCollidesWithChannel(RBCC_Pawn,FALSE);
+}
 //`endif
 exec function StartFire( optional byte FireModeNum )
 {
@@ -882,7 +1189,7 @@ exec function StartFire( optional byte FireModeNum )
 	NormalStateName = GetStateName();
 
 	if(!ZombiePlayerPawn(Pawn).IsDoingSpecialMove(SM_Combat_GetHurt)&&Pawn.physics!=PHYS_Falling){
-		if(ZombieRushPawn(Pawn).WeaponType==1||ZombieRushPawn(Pawn).AmmoNum[ZombieRushPawn(Pawn).WeaponType]>0)
+		if(ZombieRushPawn(Pawn).CurrentWeaponType==1||ZombieRushPawn(Pawn).AmmoNum[ZombieRushPawn(Pawn).CurrentWeaponType]>0)
 		{
 		   GotoState('DoingSpecialMove');
 		   if(Pawn.Weapon== ZombieRushPawn(Pawn).WeaponList[1] )	
@@ -908,7 +1215,7 @@ DefaultProperties
 	OrientIndex=0
 
 	MinMoveDistance=25   //15
-    MinTapDistance=15	 //8
+  MinTapDistance=15	 //8
 	StrafeCoeff=100
 	StrafeMaxVel=600
 	ForwardVel = 630    // infact 630->467
@@ -919,6 +1226,7 @@ DefaultProperties
 
 	TurnIntervalTime=0.3
 	LatentTurnCommand=-1
-	KnockMag=900.0
+	KnockMag=300.0 // 600
 	DefaultSpeed=775
+	bReceiveInput=true
 }

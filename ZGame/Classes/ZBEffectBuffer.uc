@@ -3,6 +3,7 @@ class ZBEffectBuffer extends Actor;
 var ZombieRushPC MyPCOwner;
 var ZombieRushPawn MyPawn;
 var float VelocityScale;
+var bool bActive;
 event PostBeginPlay()
 {
 	MyPCOwner = ZombieRushPC(Owner);	
@@ -20,6 +21,7 @@ function AddDingciEffect()
 
 	///////////
 	MyPawn.CustomTakeDamage(10);
+	bActive = true;
 	VelocityScale = 0.5;
 	SetTimer(20,false,'RemoveDingciEffect');
 }
@@ -30,9 +32,13 @@ function RemoveDingciEffect()
 	///////////
 
    	VelocityScale = 1.0;
+   	bActive = false;
 }
 event Destroyed()
 {
 	super.Destroyed();
 	ClearTimer('RemoveDingciEffect');
+}
+DefaultProperties
+{
 }

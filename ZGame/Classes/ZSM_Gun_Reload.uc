@@ -11,7 +11,7 @@ function SpecialMoveEnded(ESpecialMove PrevMove, ESpecialMove NextMove)
 {
 	Super.SpecialMoveEnded(PrevMove, NextMove);
 	PCOwner.gotoState('PlayerRush');
-	ZombieRushPawn(PawnOwner).AmmoNum[ZombieRushPawn(PawnOwner).CurrentWeaponType] += 10;
+	ZombieRushPawn(PawnOwner).AddAmmoToCurrentWeapon();
 }
 
 defaultproperties

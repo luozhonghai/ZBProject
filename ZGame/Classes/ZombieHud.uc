@@ -11,7 +11,7 @@ delegate LastOnReleaseActButton();
 simulated function PostBeginPlay()
 {
 	super.PostBeginPlay();
-	CreateHUDMovie();
+	//CreateHUDMovie();
 }
 
 event PostRender()
@@ -28,12 +28,16 @@ event PostRender()
 	PPC=ZombiePC(PlayerOwner);
 	PPawn=ZombiePlayerPawn(PPC.Pawn);
 
-   `if(`isdefined(debug))
+   if(PPC.GameDebug)
+   {
      //`include(AmbientCreature_Debug.uci)
          OldColor = Canvas.DrawColor;        
          Canvas.SetDrawColor(255,0,0);
          Canvas.SetPos(400,50);
          Canvas.DrawText("PlayerPower: "@PPawn.PlayerPower);
+      //   Canvas.SetPos(400,80);
+      //   Canvas.DrawText("Health: "@PPawn.PlayerHealth);
+   // `if(`isdefined(debug))
 		// Canvas.DrawText("RootMotionRotationMode: "@(PPawn.Mesh.RootMotionRotationMode));
 		//Canvas.DrawText("InteractZombie: "@PPC.InteractZombie);
          Canvas.SetPos(400,80);
@@ -42,17 +46,24 @@ event PostRender()
          Canvas.DrawText("Specialmove: "@PPawn.SpecialMove);
          Canvas.SetPos(400,140);
          Canvas.DrawText("Physics:"@ZombieRushPawn(PPawn).Physics);
+       }
+    `if(`isdefined(debug))
          Canvas.SetPos(400,170);
     //     Canvas.DrawText("AMMO:"@ZombieRushPawn(PPawn).AmmoNum[ZombieRushPawn(PPawn).CurrentWeaponType]);
-        if(ZombieRushPawn(PPawn).CurrentActiveCustomAnimNode.GetCustomAnimNodeSeq() != none)
-         Canvas.DrawText(ZombieRushPawn(PPawn).CurrentActiveCustomAnimNode.GetCustomAnimNodeSeq().AnimSeqName);
+     //   if(ZombieRushPawn(PPawn).CurrentActiveCustomAnimNode.GetCustomAnimNodeSeq() != none)
+     //    Canvas.DrawText(ZombieRushPawn(PPawn).CurrentActiveCustomAnimNode.GetCustomAnimNodeSeq().AnimSeqName);
 
          Canvas.SetPos(400,200);
-         Canvas.DrawText("CustomHealth"@PPawn.GetCustomHealth()@"Health"@PPawn.Health);
+         Canvas.DrawText("InteractZombie: "@PPC.InteractZombie);
+        // Canvas.DrawText("CustomHealth"@PPawn.GetCustomHealth()@"Health"@PPawn.Health);
 
 
          Canvas.SetPos(400,230);
-         Canvas.DrawText("AmmoNum"@ZombieRushPawn(PPawn).AmmoNum[2]);
+        // Canvas.DrawText("GunAmmoNum"@ZombieRushPawn(PPawn).AmmoNum[2]);
+
+         Canvas.SetPos(400,260);
+        // Canvas.DrawText("bHitWall"@ZombieRushPawn(PPawn).bHitWall);
+        // Canvas.DrawText("TotalAmmoNum"@ZombieRushPawn(PPawn).CurrentWeaponType);
 
          foreach AllActors(class 'Actor', a, class 'IDebugInterface')
          {
@@ -94,7 +105,10 @@ function bool HudCheckTouchEvent(int Handle,ETouchType Type,Vector2D TouchLocati
    TouchLocRatio.x = TouchLocation.x / ViewportSize.x;
    TouchLocRatio.y = TouchLocation.y / ViewportSize.y;
   
+  if(GameNormalHudMovie != none)
    return GameNormalHudMovie.GfxCheckTouchEvent(Handle,Type,TouchLocRatio);
+  else
+   return false;
 }
 
 function  HudCheckTouchEvent_CaptureByZombie(int Handle,ETouchType Type,Vector2D TouchLocation,Vector2D ViewportSize)
@@ -104,6 +118,7 @@ function  HudCheckTouchEvent_CaptureByZombie(int Handle,ETouchType Type,Vector2D
 	TouchLocRatio.x = TouchLocation.x / ViewportSize.x;
 	TouchLocRatio.y = TouchLocation.y / ViewportSize.y;
 
+  if(GameNormalHudMovie != none)
 	GameNormalHudMovie.GfxCheckTouchEvent_CaptureByZombie(Handle,Type,TouchLocRatio);
 }
 

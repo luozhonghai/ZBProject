@@ -14,18 +14,20 @@ event Touch( Actor Other, PrimitiveComponent OtherComp, vector HitLocation, vect
 	P = ZombieRushPawn(Other);
 	if( P != None )
 	{
-	    P.AddWeaponAmmo(BulletType,BulletNum);
+	   // P.AddWeaponAmmo(BulletType,BulletNum);
+	    P.AddSharedWeaponAmmo(BulletNum);
 	    Destroy();
 	}
 }
 defaultproperties
 {
-	BulletNum=20
+	BulletNum=15
 	BulletType=EWT_Pistol
+	CollisionComponent=CollisionCylinder0
 	Begin Object Class=StaticMeshComponent Name=BulletPickUpComp
 		//model of bullet
-		StaticMesh=StaticMesh'Pickups.Armor_ShieldBelt.Mesh.S_UN_Pickups_Shield_Belt'
-		Scale3D=(X=1.5,Y=1.5,Z=1.5)
+		StaticMesh=StaticMesh'supplies.Ammo.ammo_small'
+		Scale3D=(X=1.0,Y=1.0,Z=1.0)
 		AlwaysLoadOnClient=TRUE
 		AlwaysLoadOnServer=TRUE
 

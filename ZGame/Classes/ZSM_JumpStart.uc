@@ -40,7 +40,11 @@ function SpecialMoveStarted(bool bForced, ESpecialMove PrevMove, optional INT In
 	//	PlayFall();
 }
 
-
+function SpecialMoveEnded(ESpecialMove PrevMove, ESpecialMove NextMove)
+{
+	Super.SpecialMoveEnded(PrevMove, NextMove);
+	PawnOwner.bIsJumping = false;
+}
 function PlayJump()
 {
 	local Vector HitLocation,HitNormal;
@@ -51,7 +55,7 @@ function PlayJump()
 	PawnOwner.PlayConfigAnim(AnimCfg_JumpStart);
 	//PawnOwner.CylinderComponent.SetCylinderSize(20,20);//cat
 //	 PawnOwner.CylinderComponent.SetCylinderSize(35,46);
-	PawnOwner.SetTimer(0.4,false,'PlayFall');
+	PawnOwner.SetTimer(0.4333,false,'PlayFall');
 
 	 FloorActor = PawnOwner.Trace(HitLocation, HitNormal, PawnOwner.location-1000*vect(0,0,1) ,PawnOwner.location);
 	 ForwardTraceVector = (PawnOwner.GetCollisionRadius()+50) * vector(PawnOwner.Rotation);
@@ -126,6 +130,7 @@ event tickspecial(float deltatime)
 	//modify size of cylinder  bone positon based  every tick
 	CylinderSizeZ = (headLoc.z - Fmin(lFootLoc.z,rFootLoc.z)+30)/2;
 	PawnOwner.CylinderComponent.SetCylinderSize(30,CylinderSizeZ);*/
+	/*
 	local vector BodyForwardLoc,FootForwardLoc;
 	local Actor TraceActor;
 	local Vector HitLocation,HitNormal;
@@ -138,11 +143,11 @@ event tickspecial(float deltatime)
         PawnOwner.Velocity.Y = 0;
     }
     TraceActor = PawnOwner.Trace(HitLocation, HitNormal,FootForwardLoc,BodyForwardLoc);
-    if(TraceActor!=none && FloorActor != TraceActor && TraceActor.Tag!='luzhang')
+    if(TraceActor!=none && FloorActor != TraceActor && TraceActor.Tag!='luzhang' && TraceActor.Tag!='jumpable')
     {
         PawnOwner.Velocity.X = 0;
         PawnOwner.Velocity.Y = 0;
-    }
+    }*/
 }
 
 function bool CalcCamera( float fDeltaTime, out vector out_CamLoc, out rotator out_CamRot, out float out_FOV )
@@ -183,9 +188,12 @@ DefaultProperties
   //  AnimCfg_JumpStart=(AnimationNames=("zhujue_tengkong"),PlayRate=0.5,BlendOutTime=0.2,bCauseActorAnimEnd=True,FakeRootMotionMode=RMM_Accel,bLoop=true)
 //	AnimCfg_Landing=(AnimationNames=("zhujue_zhaodi"),PlayRate=1.50000,BlendInTime=0.2,bCauseActorAnimEnd=True,FakeRootMotionMode=RMM_Accel)
 
-    AnimCfg_JumpStart=(AnimationNames=("zhujue-jumpup"),PlayRate=1.0,BlendOutTime=0.0,bCauseActorAnimEnd=True,FakeRootMotionMode=RMM_Accel)
-	AnimCfg_Landing=(AnimationNames=("zhujue-luodi"),PlayRate=0.75,BlendInTime=0.0,BlendOutTime=0.0,bCauseActorAnimEnd=True,FakeRootMotionMode=RMM_Accel)
-	AnimCfg_Jumping=(AnimationNames=("zhujue-jumpdown"),PlayRate=1.000000,bLoop=false,BlendOutTime=-1,bCauseActorAnimEnd=True,FakeRootMotionMode=RMM_Accel)
+//=("zhujue-jumpup")
+//"zhujue-luodi"
+//"zhujue-jumpdown"
+    AnimCfg_JumpStart=(AnimationNames=("actor-jumpup"),PlayRate=1.0,BlendInTime=0.0f,BlendOutTime=-1,bCauseActorAnimEnd=True,FakeRootMotionMode=RMM_Accel)
+	AnimCfg_Landing=(AnimationNames=("actor-land"),PlayRate=1.5,BlendInTime=0.15,BlendOutTime=0.15,bCauseActorAnimEnd=True,FakeRootMotionMode=RMM_Accel)
+	AnimCfg_Jumping=(AnimationNames=("actor-jumpdown"),PlayRate=2.2,BlendInTime=0.0f,bLoop=false,BlendOutTime=-1,bCauseActorAnimEnd=True,FakeRootMotionMode=RMM_Accel)
 
 	UseCustomRMM=false
 

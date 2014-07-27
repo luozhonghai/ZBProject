@@ -218,7 +218,7 @@ simulated final function bool VerifySMHasBeenInstanced(ESpecialMove AMove)
 			}
 			else
 			{
-				LogInternal(GetFuncName() @ "Failed with special move:" @ AMove @ "class:" @ SpecialMoveClasses[AMove] @ Self);
+				//LogInternal(GetFuncName() @ "Failed with special move:" @ AMove @ "class:" @ SpecialMoveClasses[AMove] @ Self);
 				SpecialMoves[AMove] = None;
 				return FALSE;
 			}
@@ -283,8 +283,9 @@ simulated event bool DoSpecialMove(ESpecialMove NewMove, optional bool bForceMov
 	local SMStruct		NewMoveStruct;
 
 	;
+	/*
      if(SpecialMovesDisableFlags[NewMove])
-		 return false;
+		 return false;*/
 
 	// ignore redundant calls to the same move
 	if( NewMove == SpecialMove && !SpecialMoves[NewMove].bCanRepeat )
@@ -296,7 +297,7 @@ simulated event bool DoSpecialMove(ESpecialMove NewMove, optional bool bForceMov
 	// Make sure NewMove is instanced.
 	if( NewMove != SM_None && !VerifySMHasBeenInstanced(NewMove) )
 	{
-		WarnInternal(WorldInfo.TimeSeconds @ Self @ GetFuncName() @ "couldn't instance special move" @ NewMove);
+	//	WarnInternal(WorldInfo.TimeSeconds @ Self @ GetFuncName() @ "couldn't instance special move" @ NewMove);
 		return false;
 	}
 
@@ -332,7 +333,7 @@ simulated event bool DoSpecialMove(ESpecialMove NewMove, optional bool bForceMov
 			}
 			else
 			{
-				WarnInternal(WorldInfo.TimeSeconds @ Self @ GetFuncName() @ "Cannot override, cannot chain." @ NewMove @ "is lost! SpecialMove:" @ SpecialMove @ "Pending:" @ SMStructToString(PendingSpecialMoveStruct));
+				//WarnInternal(WorldInfo.TimeSeconds @ Self @ GetFuncName() @ "Cannot override, cannot chain." @ NewMove @ "is lost! SpecialMove:" @ SpecialMove @ "Pending:" @ SMStructToString(PendingSpecialMoveStruct));
 				return false;
 			}
 		}
@@ -341,7 +342,7 @@ simulated event bool DoSpecialMove(ESpecialMove NewMove, optional bool bForceMov
 	// Check that we can do special move and special move has been/can be instanced
 	if( NewMove != SM_None && !bForceMove && !CanDoSpecialMove(NewMove) )
 	{
-		WarnInternal(WorldInfo.TimeSeconds @ Self @ GetFuncName() @ "cannot do requested special move" @ NewMove);
+		//WarnInternal(WorldInfo.TimeSeconds @ Self @ GetFuncName() @ "cannot do requested special move" @ NewMove);
 		return false;
 	}
 
@@ -422,7 +423,7 @@ simulated final function SpecialMoveStarted(ESpecialMove NewMove, ESpecialMove P
 
 		else
 		{
-			LogInternal("No class for special move:" @ NewMove @ self);
+		//	LogInternal("No class for special move:" @ NewMove @ self);
 		}
 
 	}
@@ -470,7 +471,7 @@ simulated final event bool CanDoSpecialMove(ESpecialMove AMove, optional bool bF
 			// and check the instance
 			return (CanChainSpecialMove(AMove) && SpecialMoves[AMove].CanDoSpecialMove(bForceCheck));
 		}
-		LogInternal(GetFuncName() @ "Failed with special move:" @ AMove @ "class:" @ SpecialMoveClasses[AMove] @ Self);
+	//	LogInternal(GetFuncName() @ "Failed with special move:" @ AMove @ "class:" @ SpecialMoveClasses[AMove] @ Self);
 	}
 	return FALSE;
 }
@@ -498,7 +499,7 @@ simulated final  function bool IsDoingASpecialMove()
 
 function PlayConfigAnim( const  AnimationParaConfig AnimConfig, optional int blendnodeindex = 0, optional int configtype = -1 )
 {
-
+ 
     
 }
 
@@ -732,7 +733,7 @@ DefaultProperties
 
 		//	blockactors=false
 			RBChannel=RBCC_Pawn
-			RBCollideWithChannels=(Default=TRUE,BlockingVolume=TRUE,Pawn=true)
+			RBCollideWithChannels=(Default=FALSE,BlockingVolume=TRUE,Pawn=FALSE)
 		End Object
 
 
